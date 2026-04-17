@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  body {
+    @apply bg-background text-white;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Scrollbar personalizado estilo iOS/Moderno */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-accent/50 rounded-full;
+}
+
+.safe-pb {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.safe-pt {
+  padding-top: var(--safe-area-inset-top);
+}
+
+.player-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background:
+    linear-gradient(to right, rgba(255, 255, 255, 0.95) 0, rgba(255, 255, 255, 0.95) var(--player-progress, 0%), rgba(255, 255, 255, 0.12) var(--player-progress, 0%), rgba(255, 255, 255, 0.12) 100%);
+  cursor: pointer;
+}
+
+.player-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.player-slider::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.player-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: -0.3125rem;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
+}
+
+.player-slider::-moz-range-track {
+  height: 0.25rem;
+  border: 0;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.player-slider::-moz-range-progress {
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.player-slider::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
+}

@@ -1,0 +1,29 @@
+import Dexie from 'dexie';
+
+export const db = new Dexie('FlowfadeDB');
+
+db.version(1).stores({
+  songs: '++id, title, artist, album, format, addedAt',
+  playlists: '++id, name',
+  settings: 'key'
+});
+
+/**
+ * Servicio para gestionar la persistencia de canciones y metadatos.
+ */
+export const SongService = {
+  async addSong(songData) {
+    return await db.songs.add({
+      ...songData,
+      addedAt: Date.now()
+    });
+  },
+
+  async getAllSongs() {
+    return await db.songs.toArray();
+  },
+
+  async deleteSong(id) {
+    return await db.songs.delete(id);
+  }
+};
