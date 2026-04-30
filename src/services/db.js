@@ -23,6 +23,14 @@ export const SongService = {
     return await db.songs.toArray();
   },
 
+  async updateSong(id, updates) {
+    return await db.songs.update(id, updates);
+  },
+
+  async getUnanalyzedSongs() {
+    return await db.songs.where('analyzed').notEqual(true).toArray();
+  },
+
   async deleteSong(id) {
     return await db.songs.delete(id);
   }

@@ -50,8 +50,8 @@ class AudioAnalysisService {
     const channelData = audioBuffer.getChannelData(0); // Usamos el canal izquierdo para simplificar
     const sampleRate = audioBuffer.sampleRate;
 
-    // 1. Detección de BPM
-    const bpm = this.detectBPM(channelData);
+    // 1. Detección de BPM y Beats
+    const beatData = this.detectBeats(channelData);
 
     // 2. Cálculo de Energía (RMS medio)
     const energy = this.calculateEnergy(channelData);
@@ -63,7 +63,8 @@ class AudioAnalysisService {
     const waveform = this.generateWaveform(channelData, 200);
 
     return {
-      bpm: Math.round(bpm),
+      bpm: Math.round(beatData.tempo),
+      beatGrid: beatData.beats,
       energy: energy,
       introPoint: segments.intro,
       outroPoint: segments.outro,
@@ -72,13 +73,16 @@ class AudioAnalysisService {
     };
   }
 
-  detectBPM(channelData) {
+  detectBeats(channelData) {
     try {
       const mt = new MusicTempo(channelData);
-      return mt.tempo;
+      return {
+        tempo: mt.tempo,
+        beats: mt.beats
+      };
     } catch (e) {
-      console.warn('[Analysis] Error detectando BPM:', e);
-      return 0;
+      console.warn('[Analysis] Error detectando BPM/Beats:', e);
+      return { tempo: 0, beats: [] };
     }
   }
 

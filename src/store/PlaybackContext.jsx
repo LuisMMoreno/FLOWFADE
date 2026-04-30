@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { audioEngine } from '../services/AudioEngine';
 import { MediaSessionService } from '../services/MediaSessionService';
+import { djController } from '../services/DJController';
 
 export const PlaybackContext = createContext();
 
@@ -133,14 +134,27 @@ export const PlaybackProvider = ({ children }) => {
 
   const autoNext = useCallback(() => enqueueCommand(async (token) => {
     const nextIndex = globalCurrentIndex + 1;
+    if (nextIndex >= globalQueue.length) return;
 
-    if (nextIndex >= globalQueue.length) {
-      return;
+    const currentTrack = globalQueue[globalCurrentIndex];
+    const nextTrack = globalQueue[nextIndex];
+
+    // Si el DJ está activo y tenemos datos de beats, intentamos transición sincronizada
+    if (currentTrack?.beatGrid && nextTrack?.beatGrid) {
+      const nextPhraseTime = djController.findNextPhraseBoundary(currentTrack, audioEngine.getPlaybackSnapshot().currentTime);
+      if (nextPhraseTime) {
+        await djController.performSyncTransition(currentTrack, nextTrack, nextPhraseTime);
+        globalCurrentIndex = nextIndex;
+        setQueue(globalQueue);
+        setCurrentSong(nextTrack);
+        syncFromEngine();
+        return;
+      }
     }
 
     const didPlay = await playAtIndex(globalQueue, nextIndex, true);
     if (!didPlay || token !== transitionTokenRef.current) return;
-  }), [enqueueCommand, playAtIndex]);
+  }), [enqueueCommand, playAtIndex, syncFromEngine]);
 
   const previousSong = useCallback(() => enqueueCommand(async (token) => {
     const previousIndex = globalCurrentIndex - 1;
@@ -207,17 +221,23 @@ export const PlaybackProvider = ({ children }) => {
   }, [currentSong, currentTime, duration, isPlaying, nextSong, pausePlayback, previousSong, resumePlayback, syncMediaSessionState]);
 
   useEffect(() => {
+    if (isPlaying && currentSong) {
+      djController.startScheduler(currentSong, (targetTime) => {
+        autoNext();
+      });
+    } else {
+      djController.stopScheduler();
+    }
+    return () => djController.stopScheduler();
+  }, [isPlaying, currentSong, autoNext]);
+
+  useEffect(() => {
     audioEngine.setOnEnded(() => {
       nextSong();
     });
 
-    audioEngine.setOnAlmostEnded(() => {
-      autoNext();
-    });
-
     return () => {
       audioEngine.setOnEnded(null);
-      audioEngine.setOnAlmostEnded(null);
     };
   }, [autoNext, nextSong]);
 

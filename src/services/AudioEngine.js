@@ -66,7 +66,6 @@ class AudioEngine {
 
   async initialize() {
     if (this.isInitialized) return;
-
     this.audioElements = [this.createAudioElement(0), this.createAudioElement(1)];
     this.isInitialized = true;
   }
@@ -99,7 +98,6 @@ class AudioEngine {
   updateElementVolume(index) {
     const audio = this.audioElements[index];
     if (!audio) return;
-
     const volume = clamp(this.slotVolumes[index] * this.masterVolume, 0, 1);
     audio.volume = volume;
   }
@@ -120,6 +118,7 @@ class AudioEngine {
     if (!audio) return;
 
     audio.onended = null;
+    audio.playbackRate = 1.0;
 
     try {
       audio.pause();
@@ -137,9 +136,7 @@ class AudioEngine {
     const audio = this.audioElements[index];
     const blob = await AudioStorageService.getAudioBlob(song.url);
 
-    if (requestId !== this.loadRequestId) {
-      return null;
-    }
+    if (requestId !== this.loadRequestId) return null;
 
     const objectUrl = URL.createObjectURL(blob);
     this.resetSlot(index);
@@ -147,22 +144,13 @@ class AudioEngine {
     audio.src = objectUrl;
 
     await new Promise((resolve, reject) => {
-      const handleLoaded = () => {
-        cleanup();
-        resolve();
-      };
-
-      const handleError = () => {
-        cleanup();
-        reject(new Error(`No se pudo cargar el audio para "${song.title}".`));
-      };
-
+      const handleLoaded = () => { cleanup(); resolve(); };
+      const handleError = () => { cleanup(); reject(new Error(`Error cargando "${song.title}".`)); };
       const cleanup = () => {
         audio.removeEventListener('loadedmetadata', handleLoaded);
         audio.removeEventListener('canplay', handleLoaded);
         audio.removeEventListener('error', handleError);
       };
-
       audio.addEventListener('loadedmetadata', handleLoaded, { once: true });
       audio.addEventListener('canplay', handleLoaded, { once: true });
       audio.addEventListener('error', handleError, { once: true });
@@ -174,24 +162,18 @@ class AudioEngine {
       return null;
     }
 
-    audio.currentTime = 0;
     return audio;
   }
 
   scheduleTrackCallbacks(audio, playbackId) {
     this.clearAlmostEndedTimeout();
-
     const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
 
     audio.onended = () => {
       if (playbackId !== this.activePlaybackId) return;
-
       this.isPlaying = false;
       this.emitProgress();
-
-      if (this.onEndedCallback) {
-        this.onEndedCallback();
-      }
+      if (this.onEndedCallback) this.onEndedCallback();
     };
 
     if (duration > this.crossfadeDuration && this.onAlmostEndedCallback) {
@@ -203,27 +185,28 @@ class AudioEngine {
     }
   }
 
-  async play(song, crossfade = false) {
+  async playSync(song, options = {}) {
+    const { crossfade = 0, offset = 0, playbackRate = 1.0 } = options;
     await this.initialize();
-
     const requestId = ++this.loadRequestId;
     const nextIndex = this.currentIndex === -1 ? 0 : (this.currentIndex + 1) % 2;
     const previousIndex = this.currentIndex;
-    const nextAudio = await this.prepareSlot(nextIndex, song, requestId);
 
-    if (!nextAudio || requestId !== this.loadRequestId) {
-      return false;
-    }
+    const nextAudio = await this.prepareSlot(nextIndex, song, requestId);
+    if (!nextAudio || requestId !== this.loadRequestId) return false;
+
+    nextAudio.currentTime = offset;
+    nextAudio.playbackRate = playbackRate;
 
     const playbackId = ++this.activePlaybackId;
     this.scheduleTrackCallbacks(nextAudio, playbackId);
 
-    if (crossfade && previousIndex !== -1 && this.audioElements[previousIndex]?.src) {
+    if (crossfade > 0 && previousIndex !== -1 && this.audioElements[previousIndex]?.src) {
       this.clearFadeInterval();
       this.setSlotVolume(nextIndex, 0);
       await nextAudio.play();
 
-      const fadeMs = this.crossfadeDuration * 1000;
+      const fadeMs = crossfade * 1000;
       const startTime = Date.now();
 
       this.fadeInterval = setInterval(() => {
@@ -231,23 +214,16 @@ class AudioEngine {
           this.clearFadeInterval();
           return;
         }
-
         const progress = clamp((Date.now() - startTime) / fadeMs, 0, 1);
         this.setSlotVolume(previousIndex, 1 - progress);
         this.setSlotVolume(nextIndex, progress);
-
         if (progress >= 1) {
           this.clearFadeInterval();
           this.resetSlot(previousIndex);
         }
       }, 50);
     } else {
-      this.audioElements.forEach((_, index) => {
-        if (index !== nextIndex) {
-          this.resetSlot(index);
-        }
-      });
-
+      this.audioElements.forEach((_, index) => { if (index !== nextIndex) this.resetSlot(index); });
       this.setSlotVolume(nextIndex, 1);
       await nextAudio.play();
     }
@@ -255,14 +231,16 @@ class AudioEngine {
     this.currentIndex = nextIndex;
     this.currentSongId = song.id;
     this.isPlaying = true;
-    this.pausedSlots = [];
     this.emitProgress();
     return true;
   }
 
+  async play(song, crossfade = false) {
+    return this.playSync(song, { crossfade: crossfade ? this.crossfadeDuration : 0 });
+  }
+
   async playCurrent() {
     await this.initialize();
-
     const slotsToResume = this.pausedSlots.length > 0
       ? [...this.pausedSlots]
       : [this.currentIndex].filter((index) => index !== -1 && this.audioElements[index]?.src);
@@ -271,9 +249,7 @@ class AudioEngine {
 
     await Promise.all(slotsToResume.map(async (index) => {
       const audio = this.audioElements[index];
-      if (audio && audio.paused) {
-        await audio.play();
-      }
+      if (audio && audio.paused) await audio.play();
     }));
 
     this.pausedSlots = [];
@@ -282,23 +258,16 @@ class AudioEngine {
     return true;
   }
 
-  async unpause() {
-    return this.playCurrent();
-  }
+  async unpause() { return this.playCurrent(); }
 
   pause() {
     if (!this.isInitialized) return false;
-
     this.pausedSlots = this.audioElements
       .map((audio, index) => (!audio.paused ? index : null))
       .filter((value) => value !== null);
 
     this.audioElements.forEach((audio) => {
-      try {
-        audio.pause();
-      } catch (error) {
-        console.warn('[AudioEngine] No se pudo pausar un elemento de audio.', error);
-      }
+      try { audio.pause(); } catch (error) {}
     });
 
     this.isPlaying = false;
@@ -308,7 +277,6 @@ class AudioEngine {
 
   stopAll() {
     if (!this.isInitialized) return;
-
     this.clearAlmostEndedTimeout();
     this.clearFadeInterval();
     this.loadRequestId++;
@@ -330,7 +298,6 @@ class AudioEngine {
   seek(timeInSeconds) {
     const audio = this.audioElements[this.currentIndex];
     if (!audio) return;
-
     const safeTime = clamp(timeInSeconds, 0, Number.isFinite(audio.duration) ? audio.duration : 0);
     audio.currentTime = safeTime;
     this.scheduleTrackCallbacks(audio, this.activePlaybackId);
@@ -339,7 +306,6 @@ class AudioEngine {
 
   getPlaybackSnapshot() {
     const audio = this.audioElements[this.currentIndex];
-
     return {
       currentTime: audio ? audio.currentTime : 0,
       duration: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
@@ -354,26 +320,14 @@ class AudioEngine {
     return Boolean(audio && !audio.paused && !audio.ended);
   }
 
-  setOnEnded(callback) {
-    this.onEndedCallback = callback;
-  }
+  setOnEnded(callback) { this.onEndedCallback = callback; }
+  setOnAlmostEnded(callback) { this.onAlmostEndedCallback = callback; }
 
-  setOnAlmostEnded(callback) {
-    this.onAlmostEndedCallback = callback;
-  }
-
-  /**
-   * Conecta el AnalyserNode a los HTMLAudioElements activos.
-   * Solo en navegadores no-iOS para no interferir con background playback.
-   * @returns {boolean} - true si se conectó exitosamente.
-   */
   connectAnalyser() {
     if (this.isAnalyserActive) return true;
-
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return false;
-
       if (!this.audioContext) {
         this.audioContext = new AudioCtx();
         this.analyserNode = this.audioContext.createAnalyser();
@@ -381,75 +335,46 @@ class AudioEngine {
         this.analyserNode.smoothingTimeConstant = 0.82;
         this.analyserNode.connect(this.audioContext.destination);
       }
-
-      // Conectar los elementos de audio existentes
       this.audioElements.forEach((audio, index) => {
         if (!this.sourceNodes[index] && audio) {
           try {
             const source = this.audioContext.createMediaElementSource(audio);
             source.connect(this.analyserNode);
             this.sourceNodes[index] = source;
-          } catch (e) {
-            console.warn(`[AudioEngine] No se pudo conectar elemento ${index} al analyser:`, e);
-          }
+          } catch (e) {}
         }
       });
-
-      if (this.audioContext.state === 'suspended') {
-        this.audioContext.resume();
-      }
-
+      if (this.audioContext.state === 'suspended') this.audioContext.resume();
       this.isAnalyserActive = true;
       return true;
-    } catch (error) {
-      console.warn('[AudioEngine] Error conectando analyser:', error);
-      return false;
-    }
+    } catch (error) { return false; }
   }
 
-  /**
-   * Obtiene datos de frecuencia del AnalyserNode.
-   * @returns {Uint8Array|null}
-   */
   getFrequencyData() {
     if (!this.analyserNode || !this.isAnalyserActive) return null;
-
     const data = new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(data);
     return data;
   }
 
-  /**
-   * Nivel de bajos normalizado (0-1).
-   */
   getBassLevel() {
     const data = this.getFrequencyData();
     if (!data) return 0;
-
     let sum = 0;
     const end = Math.min(10, data.length);
-    for (let i = 0; i < end; i++) {
-      sum += data[i];
-    }
+    for (let i = 0; i < end; i++) sum += data[i];
     return sum / (end * 255);
   }
 
-  /**
-   * Nivel de medios normalizado (0-1).
-   */
   getMidLevel() {
     const data = this.getFrequencyData();
     if (!data) return 0;
-
     let sum = 0;
     const start = 10;
     const end = Math.min(60, data.length);
-    for (let i = start; i < end; i++) {
-      sum += data[i];
-    }
+    for (let i = start; i < end; i++) sum += data[i];
     return sum / ((end - start) * 255);
   }
 }
 
 export const audioEngine = new AudioEngine();
-

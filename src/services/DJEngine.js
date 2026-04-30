@@ -11,6 +11,8 @@ class DJEngine {
       BALANCED: { bpmWeight: 0.6, energyWeight: 0.4, targetEnergy: 50 }
     };
     this.currentMode = 'BALANCED';
+    this.sessionStartTime = Date.now();
+    this.currentPhase = 'warmup'; // warmup, groove, peak, cooldown
   }
 
   setMode(mode) {
@@ -20,10 +22,24 @@ class DJEngine {
   }
 
   /**
+   * Actualiza la fase de la sesión basada en el tiempo transcurrido.
+   */
+  updateSessionPhase() {
+    const elapsedMinutes = (Date.now() - this.sessionStartTime) / (1000 * 60);
+    
+    if (elapsedMinutes < 10) this.currentPhase = 'warmup';
+    else if (elapsedMinutes < 30) this.currentPhase = 'groove';
+    else if (elapsedMinutes < 60) this.currentPhase = 'peak';
+    else this.currentPhase = 'cooldown';
+  }
+
+  /**
    * Selecciona la mejor canción de la biblioteca para seguir a la actual.
    */
   selectNextTrack(currentTrack, library) {
     if (!library || library.length === 0) return null;
+
+    this.updateSessionPhase();
 
     const candidates = library.filter(t => 
       t.id !== currentTrack?.id && 
@@ -32,7 +48,6 @@ class DJEngine {
     );
 
     if (candidates.length === 0) {
-      // Fallback a cualquier canción si no hay analizadas o suficientes
       return library[Math.floor(Math.random() * library.length)];
     }
 
@@ -43,7 +58,7 @@ class DJEngine {
 
     scored.sort((a, b) => b.score - a.score);
 
-    // Tomar una de las 3 mejores para evitar repetitividad determinista
+    // Selección semi-aleatoria entre los mejores candidatos
     const topCount = Math.min(3, scored.length);
     const selected = scored[Math.floor(Math.random() * topCount)].track;
 
@@ -56,20 +71,24 @@ class DJEngine {
 
     const mode = this.modes[this.currentMode];
     
-    // 1. Similitud de BPM (0 a 1)
-    // Penalización por diferencia de BPM. Ideal < 5%.
+    // 1. Similitud de BPM (Prioridad alta para mezclas fluidas)
     const bpmDiff = Math.abs(trackA.bpm - trackB.bpm);
-    const bpmScore = Math.max(0, 1 - (bpmDiff / (trackA.bpm * 0.1)));
+    const bpmScore = Math.max(0, 1 - (bpmDiff / (trackA.bpm * 0.12)));
 
-    // 2. Similitud de Energía (0 a 1)
-    const energyDiff = Math.abs(trackA.energy - trackB.energy);
+    // 2. Energía Adaptativa según la fase de la sesión
+    let phaseTargetEnergy = mode.targetEnergy;
+    if (this.currentPhase === 'warmup') phaseTargetEnergy = Math.min(mode.targetEnergy, 40);
+    if (this.currentPhase === 'peak') phaseTargetEnergy = Math.max(mode.targetEnergy, 70);
+    if (this.currentPhase === 'cooldown') phaseTargetEnergy = Math.max(0, mode.targetEnergy - 20);
+
+    const energyDiff = Math.abs(trackB.energy - phaseTargetEnergy);
     const energyScore = Math.max(0, 1 - (energyDiff / 50));
 
-    // 3. Proximidad al objetivo del modo
-    const targetDiff = Math.abs(trackB.energy - mode.targetEnergy);
-    const targetScore = Math.max(0, 1 - (targetDiff / 100));
+    // 3. Coherencia de transición (evitar saltos de energía bruscos respecto a la anterior)
+    const flowDiff = Math.abs(trackA.energy - trackB.energy);
+    const flowScore = Math.max(0, 1 - (flowDiff / 40));
 
-    return (bpmScore * mode.bpmWeight) + (energyScore * mode.energyWeight * 0.7) + (targetScore * 0.3);
+    return (bpmScore * mode.bpmWeight) + (energyScore * mode.energyWeight * 0.5) + (flowScore * 0.5);
   }
 
   addToHistory(id) {
