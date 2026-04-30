@@ -6,74 +6,45 @@ const PROGRESS_EVENT = 'flowfade:playback-progress';
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 /**
- * Motor de audio DJ avanzado.
- * Combina HTMLAudioElement (para iOS background) con Web Audio API (para mezcla precisa).
+ * Motor de audio orientado a iOS background:
+ * - HTMLAudioElement persistente como salida audible principal.
+ * - Crossfade mediante rampas de volumen entre dos elementos.
  */
 class AudioEngine {
   constructor() {
     this.audioElements = [];
     this.objectUrls = [null, null];
+    this.slotVolumes = [0, 0];
     this.currentIndex = -1;
+    this.crossfadeDuration = 5;
     this.isPlaying = false;
     this.currentSongId = null;
     this.masterVolume = 1;
     this.isInitialized = false;
 
-    // Web Audio API Nodes
-    this.audioContext = null;
-    this.gainNodes = [null, null];
-    this.masterGain = null;
-    this.sourceNodes = [null, null];
-    this.analyserNode = null;
-
     this.loadRequestId = 0;
     this.activePlaybackId = 0;
+    this.pausedSlots = [];
     this.fadeInterval = null;
     this.almostEndedTimeout = null;
     this.onEndedCallback = null;
     this.onAlmostEndedCallback = null;
-    this.onTransitionStartCallback = null;
-  }
 
-  async initialize() {
-    if (this.isInitialized) return;
-
-    // Crear elementos de audio
-    this.audioElements = [this.createAudioElement(0), this.createAudioElement(1)];
-
-    // Inicializar Contexto de Audio
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    this.audioContext = new AudioCtx();
-    
-    this.masterGain = this.audioContext.createGain();
-    this.masterGain.connect(this.audioContext.destination);
-    
-    this.analyserNode = this.audioContext.createAnalyser();
-    this.analyserNode.fftSize = 512;
-    this.masterGain.connect(this.analyserNode);
-
-    // Conectar elementos de audio al contexto
-    this.audioElements.forEach((audio, i) => {
-      const source = this.audioContext.createMediaElementSource(audio);
-      const gain = this.audioContext.createGain();
-      gain.gain.value = 0;
-      source.connect(gain);
-      gain.connect(this.masterGain);
-      this.gainNodes[i] = gain;
-      this.sourceNodes[i] = source;
-    });
-
-    this.isInitialized = true;
+    // Analyser (opcional, solo foreground en no-iOS)
+    this.audioContext = null;
+    this.analyserNode = null;
+    this.sourceNodes = [null, null];
+    this.isAnalyserActive = false;
   }
 
   createAudioElement(index) {
     const audio = new Audio();
     audio.preload = 'auto';
+    audio.loop = false;
     audio.playsInline = true;
     audio.setAttribute('playsinline', 'true');
     audio.setAttribute('webkit-playsinline', 'true');
-    // El volumen del elemento HTML se deja al máximo porque controlamos con GainNodes
-    audio.volume = 1;
+    audio.volume = EPSILON_VOLUME;
 
     const emitProgress = () => {
       if (index !== this.currentIndex) return;
@@ -83,20 +54,92 @@ class AudioEngine {
     };
 
     audio.addEventListener('timeupdate', emitProgress);
-    audio.addEventListener('ended', () => {
-      if (index === this.currentIndex && this.onEndedCallback) {
-        this.onEndedCallback();
-      }
-    });
+    audio.addEventListener('loadedmetadata', emitProgress);
+    audio.addEventListener('play', emitProgress);
+    audio.addEventListener('pause', emitProgress);
+    audio.addEventListener('seeking', emitProgress);
+    audio.addEventListener('seeked', emitProgress);
+    audio.addEventListener('ended', emitProgress);
 
     return audio;
+  }
+
+  async initialize() {
+    if (this.isInitialized) return;
+
+    this.audioElements = [this.createAudioElement(0), this.createAudioElement(1)];
+    this.isInitialized = true;
+  }
+
+  getProgressEventName() {
+    return PROGRESS_EVENT;
+  }
+
+  clearAlmostEndedTimeout() {
+    if (this.almostEndedTimeout) {
+      clearTimeout(this.almostEndedTimeout);
+      this.almostEndedTimeout = null;
+    }
+  }
+
+  clearFadeInterval() {
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+  }
+
+  revokeObjectUrl(index) {
+    if (this.objectUrls[index]) {
+      URL.revokeObjectURL(this.objectUrls[index]);
+      this.objectUrls[index] = null;
+    }
+  }
+
+  updateElementVolume(index) {
+    const audio = this.audioElements[index];
+    if (!audio) return;
+
+    const volume = clamp(this.slotVolumes[index] * this.masterVolume, 0, 1);
+    audio.volume = volume;
+  }
+
+  setSlotVolume(index, value) {
+    this.slotVolumes[index] = clamp(value, 0, 1);
+    this.updateElementVolume(index);
+  }
+
+  emitProgress() {
+    window.dispatchEvent(new CustomEvent(PROGRESS_EVENT, {
+      detail: this.getPlaybackSnapshot()
+    }));
+  }
+
+  resetSlot(index) {
+    const audio = this.audioElements[index];
+    if (!audio) return;
+
+    audio.onended = null;
+
+    try {
+      audio.pause();
+    } catch (error) {
+      console.warn('[AudioEngine] No se pudo pausar el slot.', error);
+    }
+
+    audio.removeAttribute('src');
+    audio.load();
+    this.revokeObjectUrl(index);
+    this.setSlotVolume(index, 0);
   }
 
   async prepareSlot(index, song, requestId) {
     const audio = this.audioElements[index];
     const blob = await AudioStorageService.getAudioBlob(song.url);
 
-    if (requestId !== this.loadRequestId) return null;
+    if (requestId !== this.loadRequestId) {
+      return null;
+    }
 
     const objectUrl = URL.createObjectURL(blob);
     this.resetSlot(index);
@@ -108,178 +151,305 @@ class AudioEngine {
         cleanup();
         resolve();
       };
+
       const handleError = () => {
         cleanup();
-        reject(new Error(`Error cargando audio slot ${index}`));
+        reject(new Error(`No se pudo cargar el audio para "${song.title}".`));
       };
+
       const cleanup = () => {
+        audio.removeEventListener('loadedmetadata', handleLoaded);
         audio.removeEventListener('canplay', handleLoaded);
         audio.removeEventListener('error', handleError);
       };
+
+      audio.addEventListener('loadedmetadata', handleLoaded, { once: true });
       audio.addEventListener('canplay', handleLoaded, { once: true });
       audio.addEventListener('error', handleError, { once: true });
       audio.load();
     });
 
+    if (requestId !== this.loadRequestId) {
+      this.resetSlot(index);
+      return null;
+    }
+
     audio.currentTime = 0;
     return audio;
   }
 
-  resetSlot(index) {
-    const audio = this.audioElements[index];
-    if (!audio) return;
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
-    if (this.objectUrls[index]) {
-      URL.revokeObjectURL(this.objectUrls[index]);
-      this.objectUrls[index] = null;
-    }
-    if (this.gainNodes[index]) {
-      this.gainNodes[index].gain.value = 0;
-    }
-  }
+  scheduleTrackCallbacks(audio, playbackId) {
+    this.clearAlmostEndedTimeout();
 
-  async play(song) {
-    await this.initialize();
-    if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
 
-    const requestId = ++this.loadRequestId;
-    const slot = 0; // Para play directo usamos slot 0
-    const audio = await this.prepareSlot(slot, song, requestId);
+    audio.onended = () => {
+      if (playbackId !== this.activePlaybackId) return;
 
-    if (!audio || requestId !== this.loadRequestId) return false;
+      this.isPlaying = false;
+      this.emitProgress();
 
-    this.stopAll();
-    this.currentIndex = slot;
-    this.currentSongId = song.id;
-    this.gainNodes[slot].gain.value = 1;
-    
-    await audio.play();
-    this.isPlaying = true;
-    this.scheduleAlmostEnded(audio, song);
-    return true;
-  }
-
-  /**
-   * Transición suave tipo DJ hacia una nueva canción.
-   */
-  async transitionTo(nextSong, plan) {
-    if (!this.isInitialized) await this.initialize();
-    if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-
-    const nextIndex = (this.currentIndex + 1) % 2;
-    const prevIndex = this.currentIndex;
-    const requestId = ++this.loadRequestId;
-
-    if (this.onTransitionStartCallback) this.onTransitionStartCallback(nextSong);
-
-    const nextAudio = await this.prepareSlot(nextIndex, nextSong, requestId);
-    if (!nextAudio || requestId !== this.loadRequestId) return false;
-
-    // Sincronización de BPM si es necesario
-    if (plan.syncBeats && this.currentSongId) {
-      // Aquí ajustaríamos playbackRate si tuviéramos los BPMs
-      // Por ahora mantenemos 1.0 pero la estructura está lista
-    }
-
-    const duration = plan.duration || 5;
-    const now = this.audioContext.currentTime;
-
-    // Rampas de volumen (Equal Power Crossfade)
-    this.gainNodes[prevIndex].gain.setValueAtTime(this.gainNodes[prevIndex].gain.value, now);
-    this.gainNodes[prevIndex].gain.exponentialRampToValueAtTime(EPSILON_VOLUME, now + duration);
-
-    this.gainNodes[nextIndex].gain.setValueAtTime(EPSILON_VOLUME, now);
-    this.gainNodes[nextIndex].gain.exponentialRampToValueAtTime(1, now + duration);
-
-    await nextAudio.play();
-    
-    setTimeout(() => {
-      this.resetSlot(prevIndex);
-    }, duration * 1000);
-
-    this.currentIndex = nextIndex;
-    this.currentSongId = nextSong.id;
-    this.isPlaying = true;
-    this.scheduleAlmostEnded(nextAudio, nextSong);
-    
-    return true;
-  }
-
-  scheduleAlmostEnded(audio, song) {
-    if (this.almostEndedTimeout) clearTimeout(this.almostEndedTimeout);
-    
-    const checkInterval = 1000;
-    const lookAhead = 15; // Empezar a planear 15 segundos antes del final
-
-    const monitor = () => {
-      if (!this.isPlaying || audio !== this.audioElements[this.currentIndex]) return;
-      
-      const remaining = audio.duration - audio.currentTime;
-      if (remaining < lookAhead && this.onAlmostEndedCallback) {
-        this.onAlmostEndedCallback(song);
-      } else {
-        this.almostEndedTimeout = setTimeout(monitor, checkInterval);
+      if (this.onEndedCallback) {
+        this.onEndedCallback();
       }
     };
 
-    this.almostEndedTimeout = setTimeout(monitor, checkInterval);
-  }
-
-  pause() {
-    this.audioElements.forEach(a => a.pause());
-    this.isPlaying = false;
-  }
-
-  async resume() {
-    if (this.audioContext?.state === 'suspended') await this.audioContext.resume();
-    const audio = this.audioElements[this.currentIndex];
-    if (audio) await audio.play();
-    this.isPlaying = true;
-  }
-
-  stopAll() {
-    this.audioElements.forEach((_, i) => this.resetSlot(i));
-    this.isPlaying = false;
-    this.currentIndex = -1;
-    this.currentSongId = null;
-  }
-
-  setVolume(val) {
-    this.masterVolume = val;
-    if (this.masterGain) {
-      this.masterGain.gain.setTargetAtTime(val, this.audioContext.currentTime, 0.1);
+    if (duration > this.crossfadeDuration && this.onAlmostEndedCallback) {
+      const remainingMs = Math.max(0, (duration - audio.currentTime - this.crossfadeDuration) * 1000);
+      this.almostEndedTimeout = setTimeout(() => {
+        if (playbackId !== this.activePlaybackId) return;
+        this.onAlmostEndedCallback();
+      }, remainingMs);
     }
   }
 
-  seek(time) {
+  async play(song, crossfade = false) {
+    await this.initialize();
+
+    const requestId = ++this.loadRequestId;
+    const nextIndex = this.currentIndex === -1 ? 0 : (this.currentIndex + 1) % 2;
+    const previousIndex = this.currentIndex;
+    const nextAudio = await this.prepareSlot(nextIndex, song, requestId);
+
+    if (!nextAudio || requestId !== this.loadRequestId) {
+      return false;
+    }
+
+    const playbackId = ++this.activePlaybackId;
+    this.scheduleTrackCallbacks(nextAudio, playbackId);
+
+    if (crossfade && previousIndex !== -1 && this.audioElements[previousIndex]?.src) {
+      this.clearFadeInterval();
+      this.setSlotVolume(nextIndex, 0);
+      await nextAudio.play();
+
+      const fadeMs = this.crossfadeDuration * 1000;
+      const startTime = Date.now();
+
+      this.fadeInterval = setInterval(() => {
+        if (playbackId !== this.activePlaybackId) {
+          this.clearFadeInterval();
+          return;
+        }
+
+        const progress = clamp((Date.now() - startTime) / fadeMs, 0, 1);
+        this.setSlotVolume(previousIndex, 1 - progress);
+        this.setSlotVolume(nextIndex, progress);
+
+        if (progress >= 1) {
+          this.clearFadeInterval();
+          this.resetSlot(previousIndex);
+        }
+      }, 50);
+    } else {
+      this.audioElements.forEach((_, index) => {
+        if (index !== nextIndex) {
+          this.resetSlot(index);
+        }
+      });
+
+      this.setSlotVolume(nextIndex, 1);
+      await nextAudio.play();
+    }
+
+    this.currentIndex = nextIndex;
+    this.currentSongId = song.id;
+    this.isPlaying = true;
+    this.pausedSlots = [];
+    this.emitProgress();
+    return true;
+  }
+
+  async playCurrent() {
+    await this.initialize();
+
+    const slotsToResume = this.pausedSlots.length > 0
+      ? [...this.pausedSlots]
+      : [this.currentIndex].filter((index) => index !== -1 && this.audioElements[index]?.src);
+
+    if (slotsToResume.length === 0) return false;
+
+    await Promise.all(slotsToResume.map(async (index) => {
+      const audio = this.audioElements[index];
+      if (audio && audio.paused) {
+        await audio.play();
+      }
+    }));
+
+    this.pausedSlots = [];
+    this.isPlaying = true;
+    this.emitProgress();
+    return true;
+  }
+
+  async unpause() {
+    return this.playCurrent();
+  }
+
+  pause() {
+    if (!this.isInitialized) return false;
+
+    this.pausedSlots = this.audioElements
+      .map((audio, index) => (!audio.paused ? index : null))
+      .filter((value) => value !== null);
+
+    this.audioElements.forEach((audio) => {
+      try {
+        audio.pause();
+      } catch (error) {
+        console.warn('[AudioEngine] No se pudo pausar un elemento de audio.', error);
+      }
+    });
+
+    this.isPlaying = false;
+    this.emitProgress();
+    return true;
+  }
+
+  stopAll() {
+    if (!this.isInitialized) return;
+
+    this.clearAlmostEndedTimeout();
+    this.clearFadeInterval();
+    this.loadRequestId++;
+    this.activePlaybackId++;
+    this.audioElements.forEach((_, index) => this.resetSlot(index));
+    this.currentIndex = -1;
+    this.currentSongId = null;
+    this.pausedSlots = [];
+    this.isPlaying = false;
+    this.emitProgress();
+  }
+
+  setVolume(value) {
+    this.masterVolume = clamp(value, 0, 1);
+    this.slotVolumes.forEach((_, index) => this.updateElementVolume(index));
+    this.emitProgress();
+  }
+
+  seek(timeInSeconds) {
     const audio = this.audioElements[this.currentIndex];
-    if (audio) audio.currentTime = time;
+    if (!audio) return;
+
+    const safeTime = clamp(timeInSeconds, 0, Number.isFinite(audio.duration) ? audio.duration : 0);
+    audio.currentTime = safeTime;
+    this.scheduleTrackCallbacks(audio, this.activePlaybackId);
+    this.emitProgress();
   }
 
   getPlaybackSnapshot() {
     const audio = this.audioElements[this.currentIndex];
+
     return {
       currentTime: audio ? audio.currentTime : 0,
-      duration: audio ? audio.duration : 0,
-      isPlaying: this.isPlaying,
+      duration: audio && Number.isFinite(audio.duration) ? audio.duration : 0,
       volume: this.masterVolume,
-      currentSongId: this.currentSongId
+      isPlaying: this.isPlaying
     };
   }
 
-  // Visualización
+  getIsActuallyPlaying() {
+    if (this.currentIndex === -1) return false;
+    const audio = this.audioElements[this.currentIndex];
+    return Boolean(audio && !audio.paused && !audio.ended);
+  }
+
+  setOnEnded(callback) {
+    this.onEndedCallback = callback;
+  }
+
+  setOnAlmostEnded(callback) {
+    this.onAlmostEndedCallback = callback;
+  }
+
+  /**
+   * Conecta el AnalyserNode a los HTMLAudioElements activos.
+   * Solo en navegadores no-iOS para no interferir con background playback.
+   * @returns {boolean} - true si se conectó exitosamente.
+   */
+  connectAnalyser() {
+    if (this.isAnalyserActive) return true;
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return false;
+
+      if (!this.audioContext) {
+        this.audioContext = new AudioCtx();
+        this.analyserNode = this.audioContext.createAnalyser();
+        this.analyserNode.fftSize = 512;
+        this.analyserNode.smoothingTimeConstant = 0.82;
+        this.analyserNode.connect(this.audioContext.destination);
+      }
+
+      // Conectar los elementos de audio existentes
+      this.audioElements.forEach((audio, index) => {
+        if (!this.sourceNodes[index] && audio) {
+          try {
+            const source = this.audioContext.createMediaElementSource(audio);
+            source.connect(this.analyserNode);
+            this.sourceNodes[index] = source;
+          } catch (e) {
+            console.warn(`[AudioEngine] No se pudo conectar elemento ${index} al analyser:`, e);
+          }
+        }
+      });
+
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+
+      this.isAnalyserActive = true;
+      return true;
+    } catch (error) {
+      console.warn('[AudioEngine] Error conectando analyser:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene datos de frecuencia del AnalyserNode.
+   * @returns {Uint8Array|null}
+   */
   getFrequencyData() {
-    if (!this.analyserNode) return null;
+    if (!this.analyserNode || !this.isAnalyserActive) return null;
+
     const data = new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(data);
     return data;
   }
 
-  setOnEnded(cb) { this.onEndedCallback = cb; }
-  setOnAlmostEnded(cb) { this.onAlmostEndedCallback = cb; }
-  setOnTransitionStart(cb) { this.onTransitionStartCallback = cb; }
+  /**
+   * Nivel de bajos normalizado (0-1).
+   */
+  getBassLevel() {
+    const data = this.getFrequencyData();
+    if (!data) return 0;
+
+    let sum = 0;
+    const end = Math.min(10, data.length);
+    for (let i = 0; i < end; i++) {
+      sum += data[i];
+    }
+    return sum / (end * 255);
+  }
+
+  /**
+   * Nivel de medios normalizado (0-1).
+   */
+  getMidLevel() {
+    const data = this.getFrequencyData();
+    if (!data) return 0;
+
+    let sum = 0;
+    const start = 10;
+    const end = Math.min(60, data.length);
+    for (let i = start; i < end; i++) {
+      sum += data[i];
+    }
+    return sum / ((end - start) * 255);
+  }
 }
 
 export const audioEngine = new AudioEngine();
+

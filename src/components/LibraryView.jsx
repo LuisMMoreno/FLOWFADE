@@ -22,12 +22,12 @@ export const LibraryView = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gradient-to-b from-surface to-background overflow-hidden safe-pt">
-      <header className="px-6 py-6 md:p-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6 transition-all">
+      <header className="px-6 py-8 md:px-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6 transition-all">
         <div>
-          <h2 className="text-[10px] md:text-sm uppercase tracking-[0.2em] text-primary font-bold mb-1 md:mb-2 opacity-90">
+          <h2 className="text-xs uppercase tracking-widest text-primary/80 font-bold mb-2">
             Tu Colección
           </h2>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white">
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-none">
             Biblioteca
           </h1>
         </div>
@@ -35,10 +35,10 @@ export const LibraryView = () => {
         <button 
           onClick={() => fileInputRef.current?.click()}
           disabled={isImporting}
-          className="flex items-center justify-center space-x-2 bg-primary hover:bg-primary/80 text-black font-bold px-5 md:px-8 py-3 md:py-4 rounded-full transition-all active:scale-95 disabled:opacity-50 w-full md:w-auto shadow-xl"
+          className="flex items-center justify-center gap-3 bg-white hover:bg-white/90 text-black font-bold px-6 py-4 rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50 w-full sm:w-auto shadow-xl"
         >
-          <Plus size={20} />
-          <span className="text-sm md:text-base">{isImporting ? 'Importando...' : 'Añadir música'}</span>
+          <Plus size={22} className="shrink-0" />
+          <span className="text-base">{isImporting ? 'Importando...' : 'Añadir música'}</span>
         </button>
         <input 
           type="file" 
@@ -50,84 +50,72 @@ export const LibraryView = () => {
         />
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-32">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-[140px] scroll-smooth">
         {songs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-accent/20 rounded-3xl">
-            <Music size={48} className="text-accent mb-4" />
-            <p className="text-accent">Tu biblioteca está vacía. Añade algunos archivos .mp3</p>
+          <div className="flex flex-col items-center justify-center py-20 px-6 border-2 border-dashed border-white/10 rounded-3xl text-center">
+            <Music size={48} className="text-white/40 mb-4" />
+            <p className="text-white/60 font-medium">Tu biblioteca está vacía.</p>
+            <p className="text-white/40 text-sm mt-1">Añade algunos archivos de audio.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-accent border-b border-accent/10 text-xs uppercase tracking-widest">
-                <th className="py-3 font-medium w-12">#</th>
-                <th className="py-3 font-medium">Título</th>
-                <th className="py-3 font-medium hidden md:table-cell">Álbum</th>
-                <th className="py-3 font-medium text-right pr-4">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="flex flex-col gap-2 pb-8">
               <AnimatePresence>
                 {songs.map((song, index) => {
                   const isCurrent = currentSong?.id === song.id;
                   return (
-                    <motion.tr 
+                    <motion.div 
                       key={song.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
                       onClick={() => handlePlaySong(index)}
-                      className={`group hover:bg-white/5 transition-colors rounded-lg overflow-hidden ${isTransitioning ? 'cursor-wait opacity-70' : 'cursor-pointer'} ${isCurrent ? 'bg-white/5' : ''}`}
+                      className={`group flex items-center justify-between p-3 rounded-2xl transition-all active:scale-[0.98] ${isTransitioning ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-white/5'} ${isCurrent ? 'bg-white/10 shadow-lg' : ''}`}
                     >
-                      <td className="py-3 text-accent text-sm">
-                        <div className="relative w-8 h-8 flex items-center justify-center">
-                          {isCurrent && isPlaying ? (
-                             <Pause size={16} className="text-primary fill-primary" />
-                          ) : isCurrent ? (
-                             <Play size={16} className="text-primary fill-primary" />
-                          ) : (
-                            <>
-                              <span className="group-hover:hidden">{index + 1}</span>
-                              <Play size={16} className="hidden group-hover:block text-white fill-white" />
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center space-x-3">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden shadow-md flex items-center justify-center bg-white/5">
                           {song.cover ? (
-                            <img src={song.cover} alt={song.title} className="w-10 h-10 rounded shadow-lg object-cover" />
+                            <img src={song.cover} alt={song.title} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-10 h-10 bg-accent/20 rounded flex items-center justify-center">
-                              <Music size={16} className="text-accent" />
-                            </div>
+                            <Music size={24} className="text-white/40" />
                           )}
-                          <div>
-                            <p className={`text-sm font-medium line-clamp-1 ${isCurrent ? 'text-primary' : 'text-white'}`}>{song.title}</p>
-                            <p className="text-xs text-accent line-clamp-1">{song.artist}</p>
+                          
+                          {/* Play overlay */}
+                          <div className={`absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm transition-opacity ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                            {isCurrent && isPlaying ? (
+                              <Pause size={24} className="text-white fill-white" />
+                            ) : (
+                              <Play size={24} className="text-white fill-white" style={{ marginLeft: '3px' }} />
+                            )}
                           </div>
                         </div>
-                      </td>
-                      <td className="py-3 text-accent text-sm hidden md:table-cell">
-                        {song.album}
-                      </td>
-                      <td className="py-3 text-right pr-4">
+                        
+                        <div className="flex flex-col flex-1 min-w-0 justify-center">
+                          <p className={`text-base font-bold truncate tracking-tight ${isCurrent ? 'text-primary' : 'text-white'}`}>
+                            {song.title}
+                          </p>
+                          <p className="text-sm text-white/60 truncate font-medium mt-0.5">
+                            {song.artist}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center shrink-0 ml-2">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             removeSong(song);
                           }}
-                          className="p-2 text-accent hover:text-red-500 transition-colors"
+                          className="w-12 h-12 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-all active:scale-90"
+                          aria-label="Eliminar canción"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={20} />
                         </button>
-                      </td>
-                    </motion.tr>
+                      </div>
+                    </motion.div>
                   );
                 })}
               </AnimatePresence>
-            </tbody>
-          </table>
+            </div>
         )}
       </div>
     </div>

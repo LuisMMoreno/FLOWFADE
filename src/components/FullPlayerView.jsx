@@ -13,9 +13,7 @@ import {
   Music,
   Shuffle,
   ListMusic,
-  Mic2,
-  Wand2,
-  Activity
+  Mic2
 } from 'lucide-react';
 
 /**
@@ -31,8 +29,6 @@ export const FullPlayerView = () => {
     duration,
     isTransitioning,
     isPlayerExpanded,
-    isDJMode,
-    toggleDJMode,
     setIsPlayerExpanded,
     togglePlay,
     nextSong,
@@ -60,7 +56,7 @@ export const FullPlayerView = () => {
   const hasSong = Boolean(currentSong);
   const canPlayPause = hasSong && !isTransitioning;
   const canGoPrevious = currentIndex > 0 && !isTransitioning;
-  const canGoNext = (currentIndex !== -1 && currentIndex < queue.length - 1 || isDJMode) && !isTransitioning;
+  const canGoNext = currentIndex !== -1 && currentIndex < queue.length - 1 && !isTransitioning;
   const safeDuration = duration || 0;
   const safeCurrentTime = Math.min(currentTime || 0, safeDuration || 0);
 
@@ -143,43 +139,31 @@ export const FullPlayerView = () => {
         }}
       >
         {/* --- Drag Handle & Close Button --- */}
-        <div className="flex items-center justify-center px-6 pt-2 pb-4">
+        <div className="flex items-center justify-between px-6 pt-2 pb-4 w-full">
           <button
             onClick={handleClose}
-            className="absolute left-6 p-2 text-white/60 hover:text-white transition-colors"
-            style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            className="flex items-center justify-center text-white/60 hover:text-white transition-colors active:scale-95"
+            style={{ width: '48px', height: '48px', marginLeft: '-12px' }}
             aria-label="Cerrar reproductor"
           >
-            <ChevronDown size={28} />
+            <ChevronDown size={32} />
           </button>
 
-          {/* Pill drag indicator */}
-          <div
-            style={{
-              width: '40px',
-              height: '5px',
-              borderRadius: '3px',
-              background: 'rgba(255, 255, 255, 0.3)'
-            }}
-          />
-
-          <div className="absolute right-6 text-white/40 text-xs font-medium uppercase tracking-wider">
-            Now Playing
+          <div className="flex flex-col items-center">
+            {/* Pill drag indicator */}
+            <div className="w-12 h-1.5 rounded-full bg-white/30 mb-2" />
+            <div className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
+              Now Playing
+            </div>
           </div>
+
+          <div style={{ width: '48px', height: '48px', marginRight: '-12px' }} />
         </div>
 
         {/* --- Album Art --- */}
-        <div className="flex-1 flex items-center justify-center px-8 min-h-0">
+        <div className="flex-1 flex items-center justify-center px-6 sm:px-10 min-h-0">
           <div
-            className="album-art-shadow gpu-accelerated"
-            style={{
-              width: '100%',
-              maxWidth: '320px',
-              aspectRatio: '1 / 1',
-              borderRadius: '24px',
-              overflow: 'hidden',
-              flexShrink: 0,
-            }}
+            className="album-art-shadow gpu-accelerated w-full max-w-[340px] sm:max-w-[420px] aspect-square rounded-[32px] overflow-hidden shrink-0"
           >
             {currentSong.cover ? (
               <img
@@ -200,34 +184,17 @@ export const FullPlayerView = () => {
         </div>
 
         {/* --- Song Info --- */}
-        <div className="px-8 pt-6 pb-2 relative">
-          <div className="flex justify-between items-start">
-            <div className="flex-1 min-w-0">
-              <h2
-                className="text-2xl font-bold text-white truncate"
-                style={{ lineHeight: '1.2' }}
-              >
-                {currentSong.title}
-              </h2>
-              <p className="text-base text-white/60 truncate mt-1 font-medium">
-                {currentSong.artist}
-              </p>
-            </div>
-            
-            {currentSong.bpm > 0 && (
-              <div className="flex flex-col items-end text-white/40 ml-4">
-                <span className="text-xs font-bold tracking-tighter flex items-center gap-1">
-                  <Activity size={10} />
-                  {currentSong.bpm}
-                </span>
-                <span className="text-[8px] uppercase tracking-widest font-bold">BPM</span>
-              </div>
-            )}
-          </div>
+        <div className="px-6 sm:px-10 pt-8 pb-3">
+          <h2 className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight leading-none">
+            {currentSong.title}
+          </h2>
+          <p className="text-lg sm:text-xl text-white/60 truncate mt-1.5 font-medium">
+            {currentSong.artist}
+          </p>
         </div>
 
         {/* --- Progress Slider --- */}
-        <div className="px-8 pt-4 pb-2">
+        <div className="px-6 sm:px-10 pt-4 pb-2">
           <input
             type="range"
             min="0"
@@ -253,7 +220,7 @@ export const FullPlayerView = () => {
         </div>
 
         {/* --- Transport Controls --- */}
-        <div className="flex items-center justify-center px-8 py-4" style={{ gap: '32px' }}>
+        <div className="flex items-center justify-center px-6 py-6 gap-6 sm:gap-10">
           {/* Previous */}
           <button
             type="button"
@@ -261,9 +228,9 @@ export const FullPlayerView = () => {
             disabled={!canGoPrevious}
             aria-label="Canción anterior"
             className="flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ width: '44px', height: '44px' }}
+            style={{ width: '56px', height: '56px' }}
           >
-            <SkipBack size={28} className="fill-current" />
+            <SkipBack size={32} className="fill-current" />
           </button>
 
           {/* Play/Pause */}
@@ -272,13 +239,13 @@ export const FullPlayerView = () => {
             onClick={togglePlay}
             disabled={!canPlayPause}
             aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-            className="flex items-center justify-center bg-white rounded-full text-black hover:scale-105 active:scale-95 transition-all shadow-2xl disabled:bg-white/70 disabled:text-black/60 disabled:cursor-not-allowed"
-            style={{ width: '64px', height: '64px' }}
+            className="flex items-center justify-center bg-white rounded-full text-black active:scale-95 transition-all shadow-2xl disabled:bg-white/70 disabled:text-black/60 disabled:cursor-not-allowed"
+            style={{ width: '80px', height: '80px' }}
           >
             {isPlaying ? (
-              <Pause size={30} className="fill-current" />
+              <Pause size={36} className="fill-current" />
             ) : (
-              <Play size={30} className="fill-current" style={{ marginLeft: '3px' }} />
+              <Play size={36} className="fill-current" style={{ marginLeft: '4px' }} />
             )}
           </button>
 
@@ -289,39 +256,37 @@ export const FullPlayerView = () => {
             disabled={!canGoNext}
             aria-label="Siguiente canción"
             className="flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ width: '44px', height: '44px' }}
+            style={{ width: '56px', height: '56px' }}
           >
-            <SkipForward size={28} className="fill-current" />
+            <SkipForward size={32} className="fill-current" />
           </button>
         </div>
 
         {/* --- Utility Buttons --- */}
-        <div className="flex items-center justify-center px-8 pb-4" style={{ gap: '48px' }}>
+        <div className="flex items-center justify-between px-10 sm:px-16 pb-8 pt-2">
           <button
             type="button"
-            onClick={toggleDJMode}
-            aria-label="Modo DJ"
-            className={`flex flex-col items-center justify-center transition-all ${isDJMode ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
-            style={{ width: '44px', height: '44px' }}
+            aria-label="Aleatorio"
+            className="flex items-center justify-center text-white/40 hover:text-white transition-colors active:scale-90"
+            style={{ width: '48px', height: '48px' }}
           >
-            <Wand2 size={20} className={isDJMode ? 'animate-pulse' : ''} />
-            <span className="text-[8px] font-bold mt-1 uppercase tracking-tighter">Auto DJ</span>
+            <Shuffle size={24} />
           </button>
           <button
             type="button"
             aria-label="Letras"
-            className="flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
-            style={{ width: '44px', height: '44px' }}
+            className="flex items-center justify-center text-white/40 hover:text-white transition-colors active:scale-90"
+            style={{ width: '48px', height: '48px' }}
           >
-            <Mic2 size={20} />
+            <Mic2 size={24} />
           </button>
           <button
             type="button"
             aria-label="Cola de reproducción"
-            className="flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
-            style={{ width: '44px', height: '44px' }}
+            className="flex items-center justify-center text-white/40 hover:text-white transition-colors active:scale-90"
+            style={{ width: '48px', height: '48px' }}
           >
-            <ListMusic size={20} />
+            <ListMusic size={24} />
           </button>
         </div>
       </div>

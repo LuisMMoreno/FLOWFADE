@@ -80,98 +80,99 @@ export const Player = () => {
       )}
 
       <div
-        className="h-20 md:h-24 px-4 flex items-center justify-between cursor-pointer md:cursor-default"
+        className="h-[72px] md:h-24 px-4 sm:px-6 flex items-center justify-between cursor-pointer md:cursor-default"
         onClick={handleMobileClick}
       >
         {/* Información de canción actual */}
-        <div className="flex items-center w-[45%] md:w-1/3 min-w-0 mr-2">
-          <div className="w-12 h-12 md:w-14 md:h-14 bg-accent/20 rounded-lg shadow-2xl flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/5">
+        <div className="flex items-center flex-1 min-w-0 mr-4 md:mr-0 md:w-1/3">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-white/5 rounded-lg shadow-md flex-shrink-0 flex items-center justify-center overflow-hidden border border-white/10">
              {currentSong?.cover ? (
                <img src={currentSong.cover} alt={currentSong.title} className="w-full h-full object-cover" />
              ) : (
-               <Music size={20} className="text-accent" />
+               <Music size={20} className="text-white/40" />
              )}
           </div>
-          <div className="ml-3 min-w-0">
-            <h4 className="text-[13px] md:text-sm font-bold text-white truncate">
+          <div className="ml-3 min-w-0 flex-1">
+            <h4 className="text-sm font-bold text-white truncate tracking-tight">
               {currentSong ? currentSong.title : 'Sin reproducción'}
             </h4>
-            <p className="text-[11px] md:text-xs text-white/50 truncate">
+            <p className="text-xs text-white/60 truncate font-medium mt-0.5">
               {currentSong ? currentSong.artist : 'Selecciona una canción'}
             </p>
           </div>
         </div>
 
         {/* Controles centrales */}
-        <div className="flex flex-col items-center justify-center flex-1 max-w-[600px] md:w-1/3">
-          <div className="flex items-center space-x-3 md:space-x-4">
-            {/* Skip Back — solo desktop */}
-            <button
-              type="button"
-              onClick={previousSong}
-              disabled={!canGoPrevious}
-              aria-label="Canción anterior"
-              className="hidden md:flex w-10 h-10 md:w-11 md:h-11 items-center justify-center text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-            >
-              <SkipBack size={20} className="fill-current" />
-            </button>
+        <div className="flex items-center justify-end md:justify-center shrink-0 md:flex-1 md:w-1/3 gap-3 md:gap-4">
+          {/* Skip Back — solo desktop */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              previousSong();
+            }}
+            disabled={!canGoPrevious}
+            aria-label="Canción anterior"
+            className="hidden md:flex w-12 h-12 items-center justify-center text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <SkipBack size={24} className="fill-current" />
+          </button>
 
-            {/* Play/Pause — siempre visible */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePlay();
-              }}
-              disabled={!canPlayPause}
-              aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-              className="w-11 h-11 md:w-12 md:h-12 flex items-center justify-center bg-white rounded-full text-black hover:scale-105 active:scale-95 transition-all shadow-lg disabled:bg-white/70 disabled:text-black/60 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
-            >
-              {isPlaying ? (
-                <Pause size={22} className="fill-current" />
-              ) : (
-                <Play size={22} className="fill-current ml-0.5" />
-              )}
-            </button>
+          {/* Play/Pause — siempre visible */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlay();
+            }}
+            disabled={!canPlayPause}
+            aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
+            className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center text-white active:scale-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPlaying ? (
+              <Pause size={28} className="fill-current" />
+            ) : (
+              <Play size={28} className="fill-current" style={{ marginLeft: '2px' }} />
+            )}
+          </button>
 
-            {/* Skip Forward — siempre visible en móvil también */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                nextSong();
-              }}
-              disabled={!canGoNext}
-              aria-label="Siguiente canción"
-              className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-white/60 hover:text-white active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-            >
-              <SkipForward size={20} className="fill-current" />
-            </button>
-          </div>
-          
-          {/* Progress bar — solo desktop */}
-          <div className="w-full mt-2 hidden md:flex items-center space-x-2 text-[10px] text-white/50 font-medium">
-            <span className="w-9 text-right tabular-nums">{formatTime(safeCurrentTime)}</span>
-            <input
-              type="range"
-              min="0"
-              max={safeDuration || 0}
-              step="0.1"
-              value={safeCurrentTime}
-              onChange={handleSeek}
-              disabled={!hasSong || safeDuration <= 0 || isTransitioning}
-              aria-label="Progreso de reproducción"
-              className="player-slider player-slider-progress flex-1"
-              style={{
-                '--player-progress': safeDuration > 0 ? `${(safeCurrentTime / safeDuration) * 100}%` : '0%'
-              }}
-            />
-            <span className="w-9 tabular-nums">{formatTime(safeDuration)}</span>
-          </div>
+          {/* Skip Forward — siempre visible en móvil también */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              nextSong();
+            }}
+            disabled={!canGoNext}
+            aria-label="Siguiente canción"
+            className="w-12 h-12 flex items-center justify-center text-white hover:text-white/80 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <SkipForward size={24} className="fill-current" />
+          </button>
+        </div>
+        
+        {/* Progress bar — solo desktop */}
+        <div className="hidden md:flex absolute bottom-[90px] left-1/2 -translate-x-1/2 w-[400px] items-center space-x-3 text-[11px] text-white/50 font-medium">
+          <span className="w-10 text-right tabular-nums">{formatTime(safeCurrentTime)}</span>
+          <input
+            type="range"
+            min="0"
+            max={safeDuration || 0}
+            step="0.1"
+            value={safeCurrentTime}
+            onChange={handleSeek}
+            disabled={!hasSong || safeDuration <= 0 || isTransitioning}
+            aria-label="Progreso de reproducción"
+            className="player-slider player-slider-progress flex-1"
+            style={{
+              '--player-progress': safeDuration > 0 ? `${(safeCurrentTime / safeDuration) * 100}%` : '0%'
+            }}
+          />
+          <span className="w-10 tabular-nums">{formatTime(safeDuration)}</span>
         </div>
 
-        {/* Controles adicionales */}
-        <div className="flex items-center justify-end w-[20%] md:w-1/3">
+        {/* Controles adicionales (Desktop) / Expand (Mobile) */}
+        <div className="flex items-center justify-end w-auto md:w-1/3">
           {/* Expand button — solo móvil */}
           {hasSong && (
             <button
@@ -180,17 +181,17 @@ export const Player = () => {
                 e.stopPropagation();
                 handleExpand();
               }}
-              className="md:hidden flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+              className="md:hidden flex items-center justify-center text-white/40 hover:text-white transition-colors ml-2"
               style={{ width: '44px', height: '44px' }}
               aria-label="Expandir reproductor"
             >
-              <ChevronUp size={22} />
+              <ChevronUp size={24} />
             </button>
           )}
 
           {/* Volume — solo desktop */}
-          <div className="items-center space-x-2 w-32 hidden lg:flex">
-            <Volume2 size={16} className="text-white/50" />
+          <div className="items-center space-x-3 w-32 hidden lg:flex ml-auto">
+            <Volume2 size={18} className="text-white/50" />
             <input
               type="range"
               min="0"
