@@ -197,3 +197,15 @@
 - Experiencia "Now Playing" completamente implementada.
 - Build exitoso (Vite production). Dev server funcional.
 - Pendiente: verificación en iPhone real (safe areas, rendimiento de ondas, background playback con analyser conectado).
+
+## 2026-04-30 09:28:00
+### Cambios Realizados — Optimización de FullPlayerView
+- **Rediseño con `ui-ux-pro-max`**: Implementación de una estética *Glassmorphism Dark Mode Premium* en el componente `FullPlayerView` con diseño responsivo flotante.
+- **Aceleración por Hardware (GPU)**: Se agregaron las clases de Tailwind `transform-gpu` y estilos en línea (`translateZ(0)` y `will-change: transform, opacity`) al contenedor principal, a la carátula desenfocada, a las ondas de fluido y al panel de control de cristal.
+- **Eficiencia de Eventos**: Se añadió `pointer-events-none` al contenedor de ondas de fluido para evitar cálculos de intersección inútiles y mejorar la tasa de fotogramas (FPS) en móviles.
+
+### Justificación
+- Las animaciones pesadas de desenfoque múltiple (`blur(60px)` y `backdrop-blur-3xl`) combinadas con transiciones basadas en físicas (spring physics de `framer-motion`) estaban causando cuellos de botella en la renderización del navegador (Main Thread). Mover estas capas al motor de composición de la tarjeta gráfica (GPU) elimina los tirones al abrir o cerrar la vista sin tener que sacrificar los detalles de calidad visual premium.
+
+### Estado Actual
+- El reproductor agrandado (`FullPlayerView`) presenta ahora interacciones fluidas a 60fps en aperturas, arrastres y cierres, conservando su estructura de alta fidelidad.

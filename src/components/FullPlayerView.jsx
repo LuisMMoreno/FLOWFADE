@@ -94,22 +94,24 @@ export const FullPlayerView = () => {
           handleClose();
         }
       }}
-      className="fixed inset-0 z-[60] flex flex-col select-none overflow-hidden bg-[#0a0a0a]"
-      style={{ touchAction: 'none', WebkitUserSelect: 'none' }}
+      className="fixed inset-0 z-[60] flex flex-col select-none overflow-hidden bg-[#0a0a0a] transform-gpu"
+      style={{ touchAction: 'none', WebkitUserSelect: 'none', willChange: 'transform, opacity' }}
     >
       {/* 1. Background Layer: Blurred Album Art */}
       <div
-        className="absolute inset-0 z-0 scale-110 opacity-70 transition-all duration-1000 ease-out"
+        className="absolute inset-0 z-0 scale-110 opacity-70 transition-all duration-1000 ease-out transform-gpu"
         style={{
           backgroundImage: currentSong.cover ? `url(${currentSong.cover})` : gradient,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           filter: 'blur(60px) brightness(0.6)',
+          willChange: 'transform, opacity',
+          transform: 'translateZ(0)'
         }}
       />
 
       {/* 2. Fluid Wave Integration */}
-      <div className="absolute inset-0 z-0 mix-blend-screen opacity-80">
+      <div className="absolute inset-0 z-0 mix-blend-screen opacity-80 pointer-events-none transform-gpu" style={{ transform: 'translateZ(0)' }}>
         <WaveBackground
           bassLevel={bassLevel}
           midLevel={midLevel}
@@ -175,7 +177,10 @@ export const FullPlayerView = () => {
         </div>
 
         {/* Bottom Glassmorphic Control Panel */}
-        <div className="w-full bg-black/40 backdrop-blur-3xl rounded-t-[48px] border-t border-white/10 px-6 sm:px-8 pt-8 pb-10 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
+        <div 
+          className="w-full bg-black/40 backdrop-blur-3xl rounded-t-[48px] border-t border-white/10 px-6 sm:px-8 pt-8 pb-10 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden transform-gpu"
+          style={{ transform: 'translateZ(0)', willChange: 'transform' }}
+        >
           
           {/* Subtle top reflection */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
