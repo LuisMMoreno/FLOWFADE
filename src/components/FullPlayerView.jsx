@@ -13,7 +13,9 @@ import {
   Music,
   Shuffle,
   ListMusic,
-  Mic2
+  Mic2,
+  Wand2,
+  Activity
 } from 'lucide-react';
 
 /**
@@ -29,6 +31,8 @@ export const FullPlayerView = () => {
     duration,
     isTransitioning,
     isPlayerExpanded,
+    isDJMode,
+    toggleDJMode,
     setIsPlayerExpanded,
     togglePlay,
     nextSong,
@@ -56,7 +60,7 @@ export const FullPlayerView = () => {
   const hasSong = Boolean(currentSong);
   const canPlayPause = hasSong && !isTransitioning;
   const canGoPrevious = currentIndex > 0 && !isTransitioning;
-  const canGoNext = currentIndex !== -1 && currentIndex < queue.length - 1 && !isTransitioning;
+  const canGoNext = (currentIndex !== -1 && currentIndex < queue.length - 1 || isDJMode) && !isTransitioning;
   const safeDuration = duration || 0;
   const safeCurrentTime = Math.min(currentTime || 0, safeDuration || 0);
 
@@ -196,16 +200,30 @@ export const FullPlayerView = () => {
         </div>
 
         {/* --- Song Info --- */}
-        <div className="px-8 pt-6 pb-2">
-          <h2
-            className="text-2xl font-bold text-white truncate"
-            style={{ lineHeight: '1.2' }}
-          >
-            {currentSong.title}
-          </h2>
-          <p className="text-base text-white/60 truncate mt-1 font-medium">
-            {currentSong.artist}
-          </p>
+        <div className="px-8 pt-6 pb-2 relative">
+          <div className="flex justify-between items-start">
+            <div className="flex-1 min-w-0">
+              <h2
+                className="text-2xl font-bold text-white truncate"
+                style={{ lineHeight: '1.2' }}
+              >
+                {currentSong.title}
+              </h2>
+              <p className="text-base text-white/60 truncate mt-1 font-medium">
+                {currentSong.artist}
+              </p>
+            </div>
+            
+            {currentSong.bpm > 0 && (
+              <div className="flex flex-col items-end text-white/40 ml-4">
+                <span className="text-xs font-bold tracking-tighter flex items-center gap-1">
+                  <Activity size={10} />
+                  {currentSong.bpm}
+                </span>
+                <span className="text-[8px] uppercase tracking-widest font-bold">BPM</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* --- Progress Slider --- */}
@@ -277,15 +295,17 @@ export const FullPlayerView = () => {
           </button>
         </div>
 
-        {/* --- Utility Buttons (Placeholders) --- */}
+        {/* --- Utility Buttons --- */}
         <div className="flex items-center justify-center px-8 pb-4" style={{ gap: '48px' }}>
           <button
             type="button"
-            aria-label="Aleatorio"
-            className="flex items-center justify-center text-white/40 hover:text-white/70 transition-colors"
+            onClick={toggleDJMode}
+            aria-label="Modo DJ"
+            className={`flex flex-col items-center justify-center transition-all ${isDJMode ? 'text-white' : 'text-white/40 hover:text-white/70'}`}
             style={{ width: '44px', height: '44px' }}
           >
-            <Shuffle size={20} />
+            <Wand2 size={20} className={isDJMode ? 'animate-pulse' : ''} />
+            <span className="text-[8px] font-bold mt-1 uppercase tracking-tighter">Auto DJ</span>
           </button>
           <button
             type="button"
