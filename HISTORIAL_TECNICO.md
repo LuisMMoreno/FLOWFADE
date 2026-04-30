@@ -166,3 +166,34 @@
 ### Estado Final
 - La pista activa queda orientada a seguir sonando realmente en segundo plano en iPhone.
 - El reproductor interno queda más estable y elimina controles engañosos o no implementados.
+
+## 2026-04-20 21:50:00
+### Cambios Realizados — "Now Playing" Experience
+- **Fase 0 — Design System**: Creación de `MASTER_DESIGN_SYSTEM.md` con tokens de diseño (Glassmorphism, Dark Mode, Outfit font, espaciado 8px, touch targets 44pt, safe areas iOS).
+- **Subagente 1 — Audio Visual Intelligence**:
+  - `AudioEngine.js`: Añadido soporte opcional para `AnalyserNode` (`connectAnalyser()`, `getFrequencyData()`, `getBassLevel()`, `getMidLevel()`). Solo se activa en navegadores no-iOS para preservar background playback.
+  - `ColorExtractionService.js` (NUEVO): Servicio Canvas de extracción de 2 colores dominantes via K-means. Incluye validación WCAG 4.5:1 y ajuste de luminosidad.
+  - `useAlbumColors.js` (NUEVO): Hook que aplica colores dinámicos como variables CSS en `:root` (`--current-primary`, `--current-secondary`).
+  - `useAudioAnalyser.js` (NUEVO): Hook con análisis FFT real (desktop) + simulación generativa (iOS) para datos de bass/mid.
+- **Subagente 2 — Now Playing UI**:
+  - `FullPlayerView.jsx` (NUEVO): Vista pantalla completa con glassmorphism (4 capas: blur de carátula, ondas Canvas, overlay cristal, contenido). Animación spring via framer-motion. Swipe-down-to-dismiss. Safe areas iOS. Touch targets ≥44pt.
+  - `Player.jsx`: Rediseñado como MiniPlayer. Tap para expandir en móvil. Barra de progreso mini visible. Skip Forward siempre visible. Auto-hide cuando FullPlayer abierto.
+- **Subagente 3 — Motion & Background**:
+  - `WaveBackground.jsx` (NUEVO): Canvas 2D con 4 ondas orgánicas multi-armónico. Amplitud modulada por bass/mid. GPU optimizado (`translateZ(0)`, `will-change: transform`). DPR-aware. Lerp smoothing en datos de audio.
+- **Subagente 4 — Integration**:
+  - `PlaybackContext.jsx`: Estado `isPlayerExpanded` + bloqueo de scroll (`body-scroll-locked`).
+  - `App.jsx`: Integración de `FullPlayerView` con `AnimatePresence` para animaciones mount/unmount.
+  - `index.html`: Google Fonts Outfit (400-900).
+  - `tailwind.config.js`: Familia tipográfica Outfit como sans-serif primaria.
+  - `index.css`: Variables CSS dinámicas, slider touch-friendly, glassmorphism classes, GPU acceleration, zero-scroll mode.
+
+### Justificación
+- **Glassmorphism dinámico**: Crea una experiencia "Apple-like" premium que se adapta visualmente a cada canción.
+- **Hybrid analyser**: Análisis FFT real en desktop + simulación en iOS para no romper background playback.
+- **Canvas 2D**: Máximo rendimiento en iOS (60fps) vs SVG o CSS animations.
+- **framer-motion drag**: Swipe-to-dismiss nativo con spring physics sin código de touch manual.
+
+### Estado Actual
+- Experiencia "Now Playing" completamente implementada.
+- Build exitoso (Vite production). Dev server funcional.
+- Pendiente: verificación en iPhone real (safe areas, rendimiento de ondas, background playback con analyser conectado).

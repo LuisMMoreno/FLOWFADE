@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { audioEngine } from '../services/AudioEngine';
 import { MediaSessionService } from '../services/MediaSessionService';
+import { djEngine } from '../services/DJEngine';
+import { audioAnalysisService } from '../services/AudioAnalysisService';
 
 export const PlaybackContext = createContext();
 
@@ -13,42 +15,46 @@ export const PlaybackProvider = ({ children }) => {
   const [queue, setQueue] = useState(globalQueue);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(audioEngine.getPlaybackSnapshot().volume);
+  const [volume, setVolumeState] = useState(0.8);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
+  const [isDJMode, setIsDJMode] = useState(true); // DJ Mode activado por defecto
 
   const currentSongRef = useRef(currentSong);
   const transitionTokenRef = useRef(0);
   const commandChainRef = useRef(Promise.resolve());
 
+  // Iniciar análisis en segundo plano al cargar el proveedor
+  useEffect(() => {
+    audioAnalysisService.analyzeQueue();
+  }, [queue.length]);
+
   useEffect(() => {
     currentSongRef.current = currentSong;
   }, [currentSong]);
+
+  const toggleDJMode = useCallback(() => {
+    setIsDJMode(prev => !prev);
+  }, []);
 
   const syncFromEngine = useCallback(() => {
     const snapshot = audioEngine.getPlaybackSnapshot();
     setCurrentTime(snapshot.currentTime);
     setDuration(snapshot.duration);
-    setVolumeState(snapshot.volume);
-    setIsPlaying(audioEngine.getIsActuallyPlaying());
+    setIsPlaying(audioEngine.isPlaying);
   }, []);
 
   useEffect(() => {
-    const eventName = audioEngine.getProgressEventName();
     const handleProgress = (event) => {
-      const snapshot = event.detail || audioEngine.getPlaybackSnapshot();
+      const snapshot = event.detail;
       setCurrentTime(snapshot.currentTime);
       setDuration(snapshot.duration);
-      setVolumeState(snapshot.volume);
-      setIsPlaying(snapshot.isPlaying && audioEngine.getIsActuallyPlaying());
+      setIsPlaying(snapshot.isPlaying);
     };
 
-    window.addEventListener(eventName, handleProgress);
-    syncFromEngine();
-
-    return () => {
-      window.removeEventListener(eventName, handleProgress);
-    };
-  }, [syncFromEngine]);
+    window.addEventListener('flowfade:playback-progress', handleProgress);
+    return () => window.removeEventListener('flowfade:playback-progress', handleProgress);
+  }, []);
 
   const syncMediaSessionState = useCallback((playing) => {
     MediaSessionService.updatePlaybackState(playing ? 'playing' : 'paused');
@@ -75,7 +81,7 @@ export const PlaybackProvider = ({ children }) => {
     return commandChainRef.current;
   }, []);
 
-  const playAtIndex = useCallback(async (songList, index, crossfade = false) => {
+  const playAtIndex = useCallback(async (songList, index, transition = false) => {
     if (!songList[index]) return false;
 
     globalQueue = [...songList];
@@ -83,47 +89,66 @@ export const PlaybackProvider = ({ children }) => {
     setQueue(globalQueue);
 
     const song = globalQueue[globalCurrentIndex];
-    const didPlay = await audioEngine.play(song, crossfade);
+    let didPlay = false;
+
+    if (transition && isDJMode) {
+      const plan = djEngine.getTransitionPlan(currentSongRef.current, song);
+      didPlay = await audioEngine.transitionTo(song, plan);
+    } else {
+      didPlay = await audioEngine.play(song);
+    }
 
     if (!didPlay) return false;
 
     setCurrentSong(song);
-    syncFromEngine();
     syncMediaSessionState(true);
     return true;
-  }, [syncFromEngine, syncMediaSessionState]);
+  }, [isDJMode, syncMediaSessionState]);
 
   const stopPlayback = useCallback(() => {
     audioEngine.stopAll();
     globalCurrentIndex = -1;
     setCurrentSong(null);
-    syncFromEngine();
     syncMediaSessionState(false);
     MediaSessionService.clearMetadata();
-  }, [syncFromEngine, syncMediaSessionState]);
+  }, [syncMediaSessionState]);
 
   const nextSong = useCallback(() => enqueueCommand(async (token) => {
-    const nextIndex = globalCurrentIndex + 1;
+    let nextIndex = globalCurrentIndex + 1;
+    let nextSong = globalQueue[nextIndex];
 
-    if (nextIndex >= globalQueue.length) {
-      stopPlayback();
-      return;
+    if (isDJMode) {
+      nextSong = djEngine.selectNextTrack(currentSongRef.current, globalQueue);
+      nextIndex = globalQueue.findIndex(s => s.id === nextSong?.id);
     }
 
-    const didPlay = await playAtIndex(globalQueue, nextIndex, false);
-    if (!didPlay || token !== transitionTokenRef.current) return;
-  }), [enqueueCommand, playAtIndex, stopPlayback]);
-
-  const autoNext = useCallback(() => enqueueCommand(async (token) => {
-    const nextIndex = globalCurrentIndex + 1;
-
-    if (nextIndex >= globalQueue.length) {
+    if (!nextSong) {
+      stopPlayback();
       return;
     }
 
     const didPlay = await playAtIndex(globalQueue, nextIndex, true);
     if (!didPlay || token !== transitionTokenRef.current) return;
-  }), [enqueueCommand, playAtIndex]);
+  }), [enqueueCommand, isDJMode, playAtIndex, stopPlayback]);
+
+  const autoNext = useCallback(() => enqueueCommand(async (token) => {
+    if (isTransitioning) return;
+
+    let nextSong = null;
+    let nextIndex = -1;
+
+    if (isDJMode) {
+      nextSong = djEngine.selectNextTrack(currentSongRef.current, globalQueue);
+      nextIndex = globalQueue.findIndex(s => s.id === nextSong?.id);
+    } else {
+      nextIndex = globalCurrentIndex + 1;
+      nextSong = globalQueue[nextIndex];
+    }
+
+    if (!nextSong) return;
+
+    await playAtIndex(globalQueue, nextIndex, true);
+  }), [enqueueCommand, isDJMode, isTransitioning, playAtIndex]);
 
   const previousSong = useCallback(() => enqueueCommand(async (token) => {
     const previousIndex = globalCurrentIndex - 1;
@@ -133,31 +158,17 @@ export const PlaybackProvider = ({ children }) => {
     if (!didPlay || token !== transitionTokenRef.current) return;
   }), [enqueueCommand, playAtIndex]);
 
-  const pausePlayback = useCallback(() => enqueueCommand(async () => {
-    const changed = audioEngine.pause();
-    if (!changed) return;
-
-    syncFromEngine();
-    syncMediaSessionState(false);
-  }), [enqueueCommand, syncFromEngine, syncMediaSessionState]);
-
-  const resumePlayback = useCallback(() => enqueueCommand(async () => {
-    if (!currentSongRef.current) return;
-
-    const didResume = await audioEngine.unpause();
-    if (!didResume) return;
-
-    syncFromEngine();
-    syncMediaSessionState(true);
-  }), [enqueueCommand, syncFromEngine, syncMediaSessionState]);
-
   const togglePlay = useCallback(async () => {
-    if (audioEngine.getIsActuallyPlaying()) {
-      await pausePlayback();
+    if (audioEngine.isPlaying) {
+      audioEngine.pause();
+      setIsPlaying(false);
+      syncMediaSessionState(false);
     } else if (currentSongRef.current) {
-      await resumePlayback();
+      await audioEngine.resume();
+      setIsPlaying(true);
+      syncMediaSessionState(true);
     }
-  }, [pausePlayback, resumePlayback]);
+  }, [syncMediaSessionState]);
 
   const playFromList = useCallback((songList, index) => enqueueCommand(async (token) => {
     const didPlay = await playAtIndex(songList, index, false);
@@ -171,23 +182,20 @@ export const PlaybackProvider = ({ children }) => {
 
   const setVolume = useCallback((value) => {
     audioEngine.setVolume(value);
-    syncFromEngine();
-  }, [syncFromEngine]);
+    setVolumeState(value);
+  }, []);
 
   useEffect(() => {
     if (currentSong) {
       MediaSessionService.updateMetadata(currentSong, {
-        onPlay: resumePlayback,
-        onPause: pausePlayback,
+        onPlay: togglePlay,
+        onPause: togglePlay,
         onNext: nextSong,
         onPrevious: previousSong
       });
       syncMediaSessionState(isPlaying);
-      MediaSessionService.updatePositionState({ currentTime, duration });
-    } else {
-      MediaSessionService.clearMetadata();
     }
-  }, [currentSong, currentTime, duration, isPlaying, nextSong, pausePlayback, previousSong, resumePlayback, syncMediaSessionState]);
+  }, [currentSong, isPlaying, nextSong, previousSong, togglePlay, syncMediaSessionState]);
 
   useEffect(() => {
     audioEngine.setOnEnded(() => {
@@ -212,12 +220,14 @@ export const PlaybackProvider = ({ children }) => {
     duration,
     volume,
     isTransitioning,
+    isPlayerExpanded,
+    isDJMode,
+    setIsPlayerExpanded,
+    toggleDJMode,
     playFromList,
     nextSong,
     previousSong,
     togglePlay,
-    pausePlayback,
-    resumePlayback,
     seekTo,
     setVolume
   };
@@ -228,3 +238,4 @@ export const PlaybackProvider = ({ children }) => {
     </PlaybackContext.Provider>
   );
 };
+
