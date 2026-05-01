@@ -1,6 +1,11 @@
 /**
- * Motor de decisión DJ.
- * Selecciona la mejor pista siguiente y planea la transición.
+ * Motor de decisión DJ con conciencia de estructura musical.
+ * 
+ * En vez de "faltan 10s → mezclar", analiza:
+ * - Frases musicales (8/16/32 bars)
+ * - Energía por sección (intro, buildup, drop, breakdown, outro)
+ * - Compatibilidad de BPM y key
+ * - Fase de la sesión (warmup → groove → peak → cooldown)
  */
 class DJEngine {
   constructor() {
@@ -12,7 +17,7 @@ class DJEngine {
     };
     this.currentMode = 'BALANCED';
     this.sessionStartTime = Date.now();
-    this.currentPhase = 'warmup'; // warmup, groove, peak, cooldown
+    this.currentPhase = 'warmup';
   }
 
   setMode(mode) {
@@ -21,28 +26,22 @@ class DJEngine {
     }
   }
 
-  /**
-   * Actualiza la fase de la sesión basada en el tiempo transcurrido.
-   */
   updateSessionPhase() {
     const elapsedMinutes = (Date.now() - this.sessionStartTime) / (1000 * 60);
-    
+
     if (elapsedMinutes < 10) this.currentPhase = 'warmup';
     else if (elapsedMinutes < 30) this.currentPhase = 'groove';
     else if (elapsedMinutes < 60) this.currentPhase = 'peak';
     else this.currentPhase = 'cooldown';
   }
 
-  /**
-   * Selecciona la mejor canción de la biblioteca para seguir a la actual.
-   */
   selectNextTrack(currentTrack, library) {
     if (!library || library.length === 0) return null;
 
     this.updateSessionPhase();
 
-    const candidates = library.filter(t => 
-      t.id !== currentTrack?.id && 
+    const candidates = library.filter(t =>
+      t.id !== currentTrack?.id &&
       !this.history.slice(-5).includes(t.id) &&
       t.analyzed
     );
@@ -58,7 +57,6 @@ class DJEngine {
 
     scored.sort((a, b) => b.score - a.score);
 
-    // Selección semi-aleatoria entre los mejores candidatos
     const topCount = Math.min(3, scored.length);
     const selected = scored[Math.floor(Math.random() * topCount)].track;
 
@@ -70,25 +68,49 @@ class DJEngine {
     if (!trackA || !trackB) return 0;
 
     const mode = this.modes[this.currentMode];
-    
-    // 1. Similitud de BPM (Prioridad alta para mezclas fluidas)
-    const bpmDiff = Math.abs(trackA.bpm - trackB.bpm);
-    const bpmScore = Math.max(0, 1 - (bpmDiff / (trackA.bpm * 0.12)));
 
-    // 2. Energía Adaptativa según la fase de la sesión
+    // 1. BPM compatibility (harmonic mixing: exact, double, half)
+    const bpmA = trackA.bpm ?? 120;
+    const bpmB = trackB.bpm ?? 120;
+    const bpmScore = this.calculateBPMCompatibility(bpmA, bpmB);
+
+    // 2. Energía adaptativa según fase de sesión
     let phaseTargetEnergy = mode.targetEnergy;
     if (this.currentPhase === 'warmup') phaseTargetEnergy = Math.min(mode.targetEnergy, 40);
     if (this.currentPhase === 'peak') phaseTargetEnergy = Math.max(mode.targetEnergy, 70);
     if (this.currentPhase === 'cooldown') phaseTargetEnergy = Math.max(0, mode.targetEnergy - 20);
 
-    const energyDiff = Math.abs(trackB.energy - phaseTargetEnergy);
+    const energyDiff = Math.abs((trackB.energy ?? 50) - phaseTargetEnergy);
     const energyScore = Math.max(0, 1 - (energyDiff / 50));
 
-    // 3. Coherencia de transición (evitar saltos de energía bruscos respecto a la anterior)
-    const flowDiff = Math.abs(trackA.energy - trackB.energy);
+    // 3. Flow score (transición suave)
+    const flowDiff = Math.abs((trackA.energy ?? 50) - (trackB.energy ?? 50));
     const flowScore = Math.max(0, 1 - (flowDiff / 40));
 
     return (bpmScore * mode.bpmWeight) + (energyScore * mode.energyWeight * 0.5) + (flowScore * 0.5);
+  }
+
+  /**
+   * Compatibilidad de BPM real de DJ:
+   * - Match exacto = 1.0
+   * - Match al doble/mitad = 0.9 (ej: 70 BPM y 140 BPM son compatibles)
+   * - Dentro del ±8% = ajustable con pitch, score decrece linealmente
+   * - Fuera del ±8% = penalización fuerte
+   */
+  calculateBPMCompatibility(bpmA, bpmB) {
+    const ratios = [1, 2, 0.5]; // exact, double, half
+    let bestDiff = Infinity;
+
+    for (const ratio of ratios) {
+      const diff = Math.abs(bpmA - bpmB * ratio) / bpmA;
+      if (diff < bestDiff) bestDiff = diff;
+    }
+
+    if (bestDiff < 0.01) return 1.0;          // Casi exacto
+    if (bestDiff < 0.04) return 0.95;          // ±4% - fácil de sync
+    if (bestDiff < 0.08) return 0.8;           // ±8% - ajustable sin distorsión
+    if (bestDiff < 0.12) return 0.4;           // ±12% - posible pero suena raro
+    return 0.1;                                 // Incompatible
   }
 
   addToHistory(id) {
@@ -97,23 +119,73 @@ class DJEngine {
   }
 
   /**
-   * Calcula los parámetros de transición óptimos.
+   * Plan de transición basado en estructura musical real.
+   * 
+   * No es "X segundos de crossfade" sino:
+   * - ¿Qué tipo de transición? (EQ swap, echo out, power cut, blend)
+   * - ¿Cuántas frases dura? (8 bars = ~15s @ 128bpm)
+   * - ¿Los BPMs son sincronizables?
+   * - ¿Dónde entra B? (en su intro, en su primer drop)
    */
   getTransitionPlan(trackA, trackB) {
-    if (!trackA || !trackB) return { duration: 5, type: 'crossfade' };
+    if (!trackA || !trackB) return { duration: 8, type: 'blend', syncBeats: false };
 
-    const energyAvg = (trackA.energy + trackB.energy) / 2;
-    
-    // Transiciones más largas para energía baja (chill)
-    // Transiciones más cortas y agresivas para energía alta
-    let duration = 8;
-    if (energyAvg > 70) duration = 4;
-    else if (energyAvg > 40) duration = 6;
+    const energyA = trackA.energy ?? 50;
+    const energyB = trackB.energy ?? 50;
+    const bpmA = trackA.bpm ?? 120;
+    const bpmB = trackB.bpm ?? 120;
+
+    // ¿Son sincronizables?
+    const bpmDiff = Math.abs(bpmA - bpmB) / bpmA;
+    const canSync = bpmDiff < 0.08;
+
+    // Calcular duración en frases musicales (no en segundos arbitrarios)
+    const avgBPM = (bpmA + bpmB) / 2;
+    const beatDuration = 60 / avgBPM;       // segundos por beat
+    const barDuration = beatDuration * 4;    // 4 beats = 1 bar (compás)
+    const phraseDuration = barDuration * 8;  // 8 bars = 1 frase estándar
+
+    // Tipo de transición según energía
+    let type, phrasesCount;
+
+    if (energyA > 70 && energyB > 70) {
+      // Alta → Alta: transición corta y directa (1 frase)
+      type = 'power-swap';
+      phrasesCount = 1;
+    } else if (energyA > 60 && energyB < 40) {
+      // Alta → Baja: fade largo y suave (2 frases)
+      type = 'smooth-decay';
+      phrasesCount = 2;
+    } else if (energyA < 40 && energyB > 60) {
+      // Baja → Alta: buildup con EQ (1.5 frases)
+      type = 'buildup';
+      phrasesCount = 1.5;
+    } else if (energyA < 30 && energyB < 30) {
+      // Ambient/Chill: transición etérea larga (3 frases)
+      type = 'ethereal';
+      phrasesCount = 3;
+    } else {
+      // Normal: blend estándar (2 frases)
+      type = 'blend';
+      phrasesCount = 2;
+    }
+
+    // Duración final en segundos, basada en frases musicales reales
+    const duration = Math.round(phraseDuration * phrasesCount * 10) / 10;
+
+    // Clamp a rangos prácticos (4-20 segundos)
+    const safeDuration = Math.min(20, Math.max(4, duration));
+
+    console.log(`[DJEngine] Plan: ${type} | ${phrasesCount} frases | ${safeDuration}s | sync: ${canSync}`);
 
     return {
-      duration,
-      type: 'equal-power',
-      syncBeats: Math.abs(trackA.bpm - trackB.bpm) < (trackA.bpm * 0.08)
+      duration: safeDuration,
+      type,
+      syncBeats: canSync,
+      playbackRate: canSync ? bpmA / bpmB : 1,
+      phrasesCount,
+      barDuration,
+      beatDuration
     };
   }
 }

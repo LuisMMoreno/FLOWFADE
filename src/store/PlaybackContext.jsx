@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, useRef } from '
 import { audioEngine } from '../services/AudioEngine';
 import { MediaSessionService } from '../services/MediaSessionService';
 import { djController } from '../services/DJController';
+import { djEngine } from '../services/DJEngine';
 
 export const PlaybackContext = createContext();
 
@@ -152,7 +153,8 @@ export const PlaybackProvider = ({ children }) => {
       }
     }
 
-    const didPlay = await playAtIndex(globalQueue, nextIndex, true);
+    const plan = djEngine.getTransitionPlan(currentTrack, nextTrack);
+    const didPlay = await playAtIndex(globalQueue, nextIndex, plan.duration);
     if (!didPlay || token !== transitionTokenRef.current) return;
   }), [enqueueCommand, playAtIndex, syncFromEngine]);
 
@@ -222,7 +224,8 @@ export const PlaybackProvider = ({ children }) => {
 
   useEffect(() => {
     if (isPlaying && currentSong) {
-      djController.startScheduler(currentSong, (targetTime) => {
+      const nextTrack = globalQueue[globalCurrentIndex + 1];
+      djController.startScheduler(currentSong, nextTrack, (targetTime) => {
         autoNext();
       });
     } else {

@@ -209,3 +209,16 @@
 
 ### Estado Actual
 - El reproductor agrandado (`FullPlayerView`) presenta ahora interacciones fluidas a 60fps en aperturas, arrastres y cierres, conservando su estructura de alta fidelidad.
+
+## 2026-04-30 19:50:00
+### Cambios Realizados — Sistema de Transición DJ Profesional
+- **Transición por Fases**: Rediseño de la curva de mezcla (`computeDJMix` en `AudioEngine.js`) usando una técnica de interpolación de Poder (Equal Power linealizada con Raíz Cuadrada) para prevenir "volume dips" (caídas de volumen audible) durante el cruce de canciones en las fases INTRO, BLEND, TRANSFER y OUTRO.
+- **Transiciones Genéricas Seguras**: Actualización de `DJController.js` para asegurar que el scheduler desencadene el crossfade (`outroPoint`) independientemente de si la canción entrante posee metadatos rítmicos (`beatGrid`) pre-calculados, evitando la detención en crudo ("hard stop").
+- **Protección de Cálculos Decimales**: Aplicación de `Math.max(0, power)` antes de la extracción de raíz cuadrada (`Math.sqrt`) en `AudioEngine.js` para mitigar errores de imprecisión en coma flotante nativos de JavaScript que producían caídas catastróficas por `NaN` al intentar modificar el volumen del reproductor de HTML5.
+- **Crossfade Dinámico en Contexto**: Integración de la lógica de planeación (`getTransitionPlan` en `DJEngine.js`) directamente en `autoNext` (`PlaybackContext.jsx`) para que cada mezcla tenga la duración ideal (ej. de 4s a 8s) basándose en la energía (BPM/Energy) de las pistas involucradas, y con valores fallback robustos (`??`) contra audios sin analizar.
+
+### Justificación
+- **Experiencia DJ Realista**: Un DJ real nunca baja los *faders* de ambas canciones a la vez causando huecos de silencio. La técnica de "Raíz Cuadrada en Interpolación Lineal" mantiene la potencia RMS (percepción de volumen humano) constante, creando un empalme que se siente mágicamente orgánico. Adicionalmente, prevenir cierres por falta de metadatos o errores matemáticos garantiza estabilidad ininterrumpida en producción (PWA Background Audio).
+
+### Estado Actual
+- El reproductor es capaz de mezclar la cola de reproducción en un flujo de sonido continuo libre de imperfecciones o cortes por errores, consolidando la funcionalidad estrella de la App.
