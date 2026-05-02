@@ -292,13 +292,7 @@ export const FullPlayerView = () => {
             </button>
           </div>
 
-          {/* Bottom Action: Letras */}
-          <div className="flex justify-center pb-2">
-            <button className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/70 hover:text-white active:scale-95 transition-all flex items-center gap-2 shadow-sm">
-              <Mic2 size={16} />
-              <span className="text-xs font-bold uppercase tracking-widest">Letras</span>
-            </button>
-          </div>
+
 
         </div>
       </div>
