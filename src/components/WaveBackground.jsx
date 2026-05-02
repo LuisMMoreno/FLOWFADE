@@ -121,7 +121,11 @@ export const WaveBackground = ({
     if (!canvas) return;
 
     const handleResize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Optimización extrema para móviles: limitamos DPR a 1 o 1.5 máximo.
+      // Las ondas son formas suaves y borrosas, así que una menor resolución ahorra ~75% de recursos de GPU en iOS.
+      const isMobile = window.innerWidth < 768;
+      const dpr = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
+      
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;

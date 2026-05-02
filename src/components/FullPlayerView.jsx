@@ -97,21 +97,21 @@ export const FullPlayerView = () => {
       className="fixed inset-0 z-[60] flex flex-col select-none overflow-hidden bg-[#0a0a0a] transform-gpu"
       style={{ touchAction: 'none', WebkitUserSelect: 'none', willChange: 'transform, opacity' }}
     >
-      {/* 1. Background Layer: Blurred Album Art */}
+      {/* 1. Background Layer: Blurred Album Art (Optimizado para iOS) */}
       <div
-        className="absolute inset-0 z-0 scale-110 opacity-70 transition-all duration-1000 ease-out transform-gpu"
+        className="absolute inset-0 z-0 opacity-70 transition-all duration-1000 ease-out transform-gpu pointer-events-none"
         style={{
           backgroundImage: currentSong.cover ? `url(${currentSong.cover})` : gradient,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          filter: 'blur(40px) brightness(0.6)',
-          willChange: 'transform, opacity',
-          transform: 'translateZ(0)'
+          filter: 'blur(32px) brightness(0.5)',
+          willChange: 'transform',
+          transform: 'scale(1.15) translateZ(0)'
         }}
       />
 
-      {/* 2. Fluid Wave Integration */}
-      <div className="absolute inset-0 z-0 mix-blend-screen opacity-80 pointer-events-none transform-gpu" style={{ transform: 'translateZ(0)' }}>
+      {/* 2. Fluid Wave Integration (Optimizado: removido mix-blend-screen que causaba lag severo en iOS) */}
+      <div className="absolute inset-0 z-0 opacity-90 pointer-events-none transform-gpu" style={{ transform: 'translateZ(0)' }}>
         <WaveBackground
           bassLevel={bassLevel}
           midLevel={midLevel}
