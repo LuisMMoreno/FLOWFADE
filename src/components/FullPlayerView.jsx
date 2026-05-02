@@ -125,10 +125,18 @@ export const FullPlayerView = () => {
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
 
       {/* 4. Main Content Area */}
-      <div className="relative z-10 flex flex-col h-full w-full max-w-xl mx-auto pt-safe pb-safe">
+      <div 
+        className="relative z-10 flex flex-col h-full w-full max-w-xl mx-auto"
+        style={{
+          // Garantiza que no choque con la hora/batería en iOS (mínimo 48px o el tamaño del notch)
+          paddingTop: 'max(env(safe-area-inset-top), 54px)',
+          // Margen base para la parte inferior
+          paddingBottom: 'max(env(safe-area-inset-bottom), 16px)'
+        }}
+      >
 
         {/* Top Header - Glass pill */}
-        <div className="flex items-center justify-between px-6 py-4 mt-2">
+        <div className="flex items-center justify-between px-6 pb-4">
           <button
             onClick={handleClose}
             className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-white/20 active:scale-95 transition-all shadow-lg"
@@ -181,7 +189,7 @@ export const FullPlayerView = () => {
         </div>
 
         {/* Bottom Floating Container */}
-        <div className="w-full px-6 sm:px-8 pb-6 flex flex-col relative z-20">
+        <div className="w-full px-6 sm:px-8 pb-2 flex flex-col relative z-20">
 
           {/* Track Info (Left aligned) */}
           <div className="flex flex-col mb-6">
