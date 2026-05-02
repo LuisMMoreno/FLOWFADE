@@ -200,6 +200,12 @@ export const PlaybackProvider = ({ children }) => {
   const seekTo = useCallback((timeInSeconds) => {
     audioEngine.seek(timeInSeconds);
     syncFromEngine();
+    
+    const snapshot = audioEngine.getPlaybackSnapshot();
+    MediaSessionService.updatePositionState({ 
+      currentTime: timeInSeconds, 
+      duration: snapshot.duration 
+    });
   }, [syncFromEngine]);
 
   const setVolume = useCallback((value) => {
@@ -207,6 +213,7 @@ export const PlaybackProvider = ({ children }) => {
     syncFromEngine();
   }, [syncFromEngine]);
 
+  // 1. Metadata y Handlers (solo cuando cambia currentSong)
   useEffect(() => {
     if (currentSong) {
       MediaSessionService.updateMetadata(currentSong, {
@@ -215,12 +222,25 @@ export const PlaybackProvider = ({ children }) => {
         onNext: nextSong,
         onPrevious: previousSong
       });
-      syncMediaSessionState(isPlaying);
-      MediaSessionService.updatePositionState({ currentTime, duration });
     } else {
       MediaSessionService.clearMetadata();
     }
-  }, [currentSong, currentTime, duration, isPlaying, nextSong, pausePlayback, previousSong, resumePlayback, syncMediaSessionState]);
+  }, [currentSong, nextSong, pausePlayback, previousSong, resumePlayback]);
+
+  // 2. Playback State (cuando cambia isPlaying)
+  useEffect(() => {
+    if (currentSong) {
+      syncMediaSessionState(isPlaying);
+    }
+  }, [currentSong, isPlaying, syncMediaSessionState]);
+
+  // 3. Position State (solo cuando se conoce la duración o cambia de canción, evita timeupdates)
+  useEffect(() => {
+    if (currentSong && duration > 0) {
+      MediaSessionService.updatePositionState({ currentTime, duration });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong, duration]);
 
   useEffect(() => {
     if (isPlaying && currentSong) {

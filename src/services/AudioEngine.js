@@ -273,8 +273,11 @@ class AudioEngine {
   ensureWebAudioGraph() {
     if (this.isWebAudioConnected) return true;
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    if (isIOS) return false; // iOS: usar solo HTMLAudioElement.volume
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) {
+      console.warn('[AudioEngine] Web Audio / Analyser deshabilitado en iOS para preservar background audio y rendimiento.');
+      return false;
+    }
 
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -499,7 +502,10 @@ class AudioEngine {
     const playbackId = ++this.activePlaybackId;
     this.scheduleTrackCallbacks(nextAudio, playbackId);
 
-    if (crossfade > 0 && previousIndex !== -1 && this.audioElements[previousIndex]?.src) {
+    const isBackground = typeof document !== 'undefined' && document.hidden;
+    const shouldCrossfade = crossfade > 0 && !isBackground;
+
+    if (shouldCrossfade && previousIndex !== -1 && this.audioElements[previousIndex]?.src) {
       this.clearFadeInterval();
       this.setSlotVolume(nextIndex, 0);
 

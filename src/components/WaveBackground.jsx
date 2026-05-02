@@ -23,10 +23,11 @@ export const WaveBackground = ({
   const smoothMidRef = useRef(0);
 
   const WAVE_CONFIGS = useRef([
-    { frequency: 0.008, amplitude: 55, speed: 0.6, phase: 0, verticalPos: 0.55 },
-    { frequency: 0.012, amplitude: 40, speed: 0.8, phase: Math.PI / 3, verticalPos: 0.60 },
-    { frequency: 0.006, amplitude: 65, speed: 0.4, phase: Math.PI / 1.5, verticalPos: 0.50 },
-    { frequency: 0.015, amplitude: 30, speed: 1.0, phase: Math.PI * 1.2, verticalPos: 0.65 },
+    { frequency: 0.005, amplitude: 75, speed: 0.9, phase: 0, verticalPos: 0.35 },
+    { frequency: 0.010, amplitude: 55, speed: 1.2, phase: Math.PI / 3, verticalPos: 0.50 },
+    { frequency: 0.007, amplitude: 90, speed: 0.7, phase: Math.PI / 1.5, verticalPos: 0.65 },
+    { frequency: 0.015, amplitude: 45, speed: 1.5, phase: Math.PI * 1.2, verticalPos: 0.80 },
+    { frequency: 0.004, amplitude: 100, speed: 0.6, phase: Math.PI * 0.5, verticalPos: 0.25 }, // Onda más alta para mejor visibilidad en móvil
   ]).current;
 
   const draw = useCallback((timestamp) => {
@@ -60,12 +61,12 @@ export const WaveBackground = ({
 
     // Dibujar cada onda
     WAVE_CONFIGS.forEach((wave, waveIndex) => {
-      const bassModulation = 1 + bass * 1.8;
-      const midModulation = 1 + mid * 0.8;
+      const bassModulation = 1 + bass * 2.2; // Mayor impacto del bajo
+      const midModulation = 1 + mid * 1.0;
       const combinedModulation = bassModulation * midModulation;
 
       const effectiveAmplitude = wave.amplitude * combinedModulation;
-      const effectiveSpeed = wave.speed * (1 + mid * 0.5);
+      const effectiveSpeed = wave.speed * (1 + mid * 0.8 + bass * 0.4); // Velocidad reacciona también al bajo
       const centerY = height * wave.verticalPos;
 
       ctx.beginPath();
@@ -75,13 +76,13 @@ export const WaveBackground = ({
       for (let x = 0; x <= width; x += 2) {
         const normalizedX = x / width;
 
-        // Múltiples armónicos para forma orgánica
+        // Múltiples armónicos para forma orgánica con mayor movimiento
         const y = centerY +
           Math.sin(x * wave.frequency + t * effectiveSpeed + wave.phase) * effectiveAmplitude * 0.6 +
-          Math.sin(x * wave.frequency * 2.3 + t * effectiveSpeed * 1.4 + wave.phase * 0.7) * effectiveAmplitude * 0.25 +
-          Math.sin(x * wave.frequency * 0.5 + t * effectiveSpeed * 0.6 + wave.phase * 1.3) * effectiveAmplitude * 0.15 +
-          // Modulación sutil para que se sienta "viva"
-          Math.sin(normalizedX * Math.PI * 2 + t * 0.3) * 8 * bass;
+          Math.sin(x * wave.frequency * 2.3 + t * effectiveSpeed * 1.4 + wave.phase * 0.7) * effectiveAmplitude * 0.3 +
+          Math.sin(x * wave.frequency * 0.5 + t * effectiveSpeed * 0.6 + wave.phase * 1.3) * effectiveAmplitude * 0.2 +
+          // Modulación más fuerte para que se sienta muy "viva" con el ritmo
+          Math.sin(normalizedX * Math.PI * 2 + t * 0.5) * 15 * (bassModulation * 0.8);
 
         ctx.lineTo(x, y);
       }
@@ -93,14 +94,18 @@ export const WaveBackground = ({
       // Gradiente vertical con colores del álbum
       const gradient = ctx.createLinearGradient(0, centerY - effectiveAmplitude, 0, height);
 
-      // Alternar entre color primario y secundario según la onda
-      const isEven = waveIndex % 2 === 0;
-      const color = isEven ? primaryRgb : secondaryRgb;
-      const opacity1 = (0.12 + bass * 0.08) * (1 - waveIndex * 0.02);
-      const opacity2 = 0.02;
+      // Dar mayor dominancia al color primario (4 de cada 5 ondas)
+      const isPrimary = waveIndex % 5 !== 4;
+      const color = isPrimary ? primaryRgb : secondaryRgb;
+      
+      // Mayor opacidad base para ser más vibrante, sin ser exagerado
+      const baseOpacity = isPrimary ? 0.22 : 0.12;
+      const dynamicOpacity = baseOpacity + bass * 0.18;
+      const opacity1 = Math.min(dynamicOpacity * (1 - waveIndex * 0.05), 0.8);
+      const opacity2 = 0.04;
 
       gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity1})`);
-      gradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity1 * 0.6})`);
+      gradient.addColorStop(0.5, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity1 * 0.5})`);
       gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity2})`);
 
       ctx.fillStyle = gradient;

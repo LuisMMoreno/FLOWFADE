@@ -104,7 +104,7 @@ export const FullPlayerView = () => {
           backgroundImage: currentSong.cover ? `url(${currentSong.cover})` : gradient,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          filter: 'blur(60px) brightness(0.6)',
+          filter: 'blur(40px) brightness(0.6)',
           willChange: 'transform, opacity',
           transform: 'translateZ(0)'
         }}
@@ -178,7 +178,7 @@ export const FullPlayerView = () => {
 
         {/* Bottom Glassmorphic Control Panel */}
         <div 
-          className="w-full bg-black/40 backdrop-blur-3xl rounded-t-[48px] border-t border-white/10 px-6 sm:px-8 pt-8 pb-10 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden transform-gpu"
+          className="w-full bg-black/40 backdrop-blur-lg rounded-t-[48px] border-t border-white/10 px-6 sm:px-8 pt-8 pb-10 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden transform-gpu"
           style={{ transform: 'translateZ(0)', willChange: 'transform' }}
         >
           
