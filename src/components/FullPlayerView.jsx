@@ -126,7 +126,7 @@ export const FullPlayerView = () => {
 
       {/* 4. Main Content Area */}
       <div className="relative z-10 flex flex-col h-full w-full max-w-xl mx-auto pt-safe pb-safe">
-        
+
         {/* Top Header - Glass pill */}
         <div className="flex items-center justify-between px-6 py-4 mt-2">
           <button
@@ -135,7 +135,7 @@ export const FullPlayerView = () => {
           >
             <ChevronDown size={28} />
           </button>
-          
+
           <div className="flex flex-col items-center justify-center px-6 py-2 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)]">
             <span className="text-[10px] font-black text-white/60 tracking-[0.2em] uppercase">Now Playing</span>
             {isSyncReady && (
@@ -145,18 +145,22 @@ export const FullPlayerView = () => {
               </div>
             )}
           </div>
-          
+
           <button className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/80 hover:text-white hover:bg-white/20 active:scale-95 transition-all shadow-lg">
             <MoreHorizontal size={24} />
           </button>
         </div>
 
         {/* Center Album Art Stage */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 min-h-0 w-full relative group">
-          <motion.div 
-            className="relative w-full max-w-[360px] aspect-square rounded-[36px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] border border-white/10"
+        <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-8 py-2 min-h-0 w-full relative group">
+          <motion.div
+            className="relative aspect-square rounded-[24px] sm:rounded-[32px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)]"
             animate={{ scale: isPlaying ? 1 : 0.95 }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+            style={{
+              width: '100%',
+              maxWidth: 'min(380px, 45vh)' // Garantiza que sea siempre un cuadro perfecto y no se achate
+            }}
           >
             {currentSong.cover ? (
               <img
@@ -176,36 +180,23 @@ export const FullPlayerView = () => {
           </motion.div>
         </div>
 
-        {/* Bottom Glassmorphic Control Panel */}
-        <div 
-          className="w-full bg-black/40 backdrop-blur-lg rounded-t-[48px] border-t border-white/10 px-6 sm:px-8 pt-8 pb-10 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden transform-gpu"
-          style={{ transform: 'translateZ(0)', willChange: 'transform' }}
-        >
-          
-          {/* Subtle top reflection */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        {/* Bottom Floating Container */}
+        <div className="w-full px-6 sm:px-8 pb-6 flex flex-col relative z-20">
 
-          {/* Track Info */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex flex-col min-w-0 pr-4">
-              <h2 className="text-3xl font-black text-white truncate tracking-tight mb-1 drop-shadow-md">
-                {currentSong.title}
-              </h2>
-              <p className="text-lg text-white/60 font-medium truncate drop-shadow-sm">
-                {currentSong.artist}
-              </p>
-            </div>
-            
-            <div className="flex flex-col items-end shrink-0">
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-sm border border-white/5 flex flex-col items-center">
-                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Phase</span>
-                <span className="text-sm font-bold text-white uppercase tracking-tighter shadow-sm">{djPhase}</span>
-              </div>
-            </div>
+          {/* Track Info (Left aligned) */}
+          <div className="flex flex-col mb-6">
+            <h2 className="text-[28px] sm:text-3xl font-black text-white truncate tracking-tight mb-0.5 drop-shadow-md">
+              {currentSong.title}
+            </h2>
+            <p className="text-lg text-white/70 font-medium truncate drop-shadow-sm mb-3">
+              {currentSong.artist}
+            </p>
+
+
           </div>
 
           {/* Scrubber / Progress */}
-          <div className="mb-8 relative group cursor-pointer">
+          <div className="mb-6 relative group cursor-pointer py-2">
             <input
               type="range"
               min="0"
@@ -215,88 +206,96 @@ export const FullPlayerView = () => {
               onChange={handleSeek}
               disabled={!hasSong || safeDuration <= 0 || isTransitioning}
               aria-label="Progreso de reproducción"
-              className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+              className="absolute w-full h-full opacity-0 cursor-pointer z-10 top-0 left-0"
             />
             {/* Custom Slider Track */}
-            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-white rounded-full relative transition-all duration-100 ease-linear"
+            <div className="relative h-2 w-full bg-white/20 rounded-full">
+              <div
+                className="absolute top-0 left-0 h-full bg-white rounded-full transition-all duration-100 ease-linear"
                 style={{ width: `${progressPercent}%` }}
-              >
-                {/* Glow effect on the active track */}
-                <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-white opacity-50 blur-sm" />
-              </div>
+              ></div>
+              <div
+                className="absolute top-1/2 -mt-2 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-100 ease-linear"
+                style={{ left: `calc(${progressPercent}% - 8px)` }}
+              ></div>
             </div>
-            
-            <div className="flex justify-between mt-3 px-1">
-              <span className="text-[11px] font-semibold text-white/50 tracking-wider tabular-nums">
+
+            <div className="flex justify-between mt-2">
+              <span className="text-xs font-bold text-white tracking-wide tabular-nums drop-shadow-sm">
                 {formatTime(safeCurrentTime)}
               </span>
-              <span className="text-[11px] font-semibold text-white/50 tracking-wider tabular-nums">
+              <span className="text-xs font-bold text-white tracking-wide tabular-nums drop-shadow-sm">
                 {formatTime(safeDuration)}
               </span>
             </div>
           </div>
 
-          {/* Transport Controls */}
-          <div className="flex items-center justify-between px-2 mb-8">
+          {/* Glassmorphic Transport Controls Dock */}
+          <div className="w-full bg-white/10 backdrop-blur-xl rounded-[32px] border border-white/10 px-5 sm:px-6 py-5 mb-6 flex items-center justify-between shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+            {/* Shuffle */}
             <button
               type="button"
               aria-label="Aleatorio"
-              className="text-white/40 hover:text-white active:scale-90 transition-all"
+              className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white active:scale-90 transition-all"
             >
-              <Shuffle size={24} />
+              <Shuffle size={20} />
+              <span className="text-[10px] font-medium tracking-wide">Shuffle</span>
             </button>
 
-            <div className="flex items-center gap-6 sm:gap-8">
-              <button
-                type="button"
-                onClick={previousSong}
-                disabled={!canGoPrevious}
-                aria-label="Canción anterior"
-                className="text-white/80 hover:text-white active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <SkipBack size={36} className="fill-current" />
-              </button>
+            {/* Previous */}
+            <button
+              type="button"
+              onClick={previousSong}
+              disabled={!canGoPrevious}
+              aria-label="Canción anterior"
+              className="flex flex-col items-center gap-1.5 text-white/90 hover:text-white active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <SkipBack size={24} className="fill-current" />
+              <span className="text-[10px] font-medium tracking-wide">Previous</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={togglePlay}
-                disabled={!canPlayPause}
-                aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-                className="w-20 h-20 flex items-center justify-center bg-white rounded-full text-black hover:scale-105 active:scale-95 transition-all shadow-[0_0_40px_-10px_rgba(255,255,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isPlaying ? (
-                  <Pause size={36} className="fill-current" />
-                ) : (
-                  <Play size={36} className="fill-current ml-2" />
-                )}
-              </button>
+            {/* Play/Pause */}
+            <button
+              type="button"
+              onClick={togglePlay}
+              disabled={!canPlayPause}
+              aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
+              className="w-[68px] h-[68px] flex items-center justify-center bg-white rounded-full text-black hover:scale-105 active:scale-95 transition-all shadow-xl disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isPlaying ? (
+                <Pause size={30} className="fill-current" />
+              ) : (
+                <Play size={30} className="fill-current ml-1.5" />
+              )}
+            </button>
 
-              <button
-                type="button"
-                onClick={nextSong}
-                disabled={!canGoNext}
-                aria-label="Siguiente canción"
-                className="text-white/80 hover:text-white active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <SkipForward size={36} className="fill-current" />
-              </button>
-            </div>
+            {/* Next */}
+            <button
+              type="button"
+              onClick={nextSong}
+              disabled={!canGoNext}
+              aria-label="Siguiente canción"
+              className="flex flex-col items-center gap-1.5 text-white/90 hover:text-white active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <SkipForward size={24} className="fill-current" />
+              <span className="text-[10px] font-medium tracking-wide">Next</span>
+            </button>
 
+            {/* Playlist */}
             <button
               type="button"
               aria-label="Cola de reproducción"
-              className="text-white/40 hover:text-white active:scale-90 transition-all"
+              className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white active:scale-90 transition-all"
             >
-              <ListMusic size={24} />
+              <ListMusic size={20} />
+              <span className="text-[10px] font-medium tracking-wide">Playlist</span>
             </button>
           </div>
 
-          {/* Bottom Actions */}
-          <div className="flex items-center justify-center gap-8 text-white/30">
-            <button className="hover:text-white active:scale-95 transition-all flex items-center gap-2">
-              <Mic2 size={20} />
+          {/* Bottom Action: Letras */}
+          <div className="flex justify-center pb-2">
+            <button className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white/70 hover:text-white active:scale-95 transition-all flex items-center gap-2 shadow-sm">
+              <Mic2 size={16} />
               <span className="text-xs font-bold uppercase tracking-widest">Letras</span>
             </button>
           </div>
