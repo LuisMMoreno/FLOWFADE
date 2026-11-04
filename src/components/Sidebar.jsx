@@ -1,6 +1,14 @@
 import React from 'react';
 import { Home, Search, Library, PlusSquare, Heart } from 'lucide-react';
 
+/**
+ * @typedef {Object} SidebarItemProps
+ * @property {React.ComponentType<{ size?: number }>} icon
+ * @property {string} label
+ * @property {boolean} [active=false]
+ */
+
+/** @param {SidebarItemProps} param0 */
 const SidebarItem = ({ icon: Icon, label, active = false }) => (
   <div className={`flex items-center space-x-4 px-4 py-3 transition-colors ${active ? 'text-white font-bold' : 'text-accent'}`}>
     <Icon size={24} />

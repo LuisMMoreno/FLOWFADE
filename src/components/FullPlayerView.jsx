@@ -1,10 +1,10 @@
-import React, { useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAlbumColors } from '../hooks/useAlbumColors';
 import { useAudioAnalyser } from '../hooks/useAudioAnalyser';
+import { usePlaybackHelpers } from '../hooks/usePlaybackHelpers';
 import { WaveBackground } from './WaveBackground';
-import { djEngine } from '../services/DJEngine';
 import {
   Play,
   Pause,
@@ -14,7 +14,6 @@ import {
   Music,
   Shuffle,
   ListMusic,
-  Mic2,
   Zap,
   MoreHorizontal
 } from 'lucide-react';
@@ -26,6 +25,7 @@ export const FullPlayerView = () => {
     queue,
     currentTime,
     duration,
+    volume,
     isTransitioning,
     isPlayerExpanded,
     setIsPlayerExpanded,
@@ -35,12 +35,9 @@ export const FullPlayerView = () => {
     seekTo
   } = usePlayback();
 
-  const djPhase = djEngine.currentPhase;
   const isSyncReady = Boolean(currentSong?.beatGrid);
 
   const {
-    primaryColor,
-    secondaryColor,
     primaryRgb,
     secondaryRgb,
     gradient
@@ -48,24 +45,16 @@ export const FullPlayerView = () => {
 
   const { bassLevel, midLevel } = useAudioAnalyser(isPlayerExpanded, isPlaying);
 
-  const currentIndex = useMemo(() => {
-    if (!currentSong || !Array.isArray(queue)) return -1;
-    return queue.findIndex((song) => song.id === currentSong.id);
-  }, [currentSong, queue]);
-
-  const hasSong = Boolean(currentSong);
-  const canPlayPause = hasSong && !isTransitioning;
-  const canGoPrevious = currentIndex > 0 && !isTransitioning;
-  const canGoNext = currentIndex !== -1 && currentIndex < queue.length - 1 && !isTransitioning;
-  const safeDuration = duration || 0;
-  const safeCurrentTime = Math.min(currentTime || 0, safeDuration || 0);
-
-  const formatTime = (timeInSeconds) => {
-    const totalSeconds = Math.max(0, Math.floor(timeInSeconds));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  const {
+    hasSong,
+    canPlayPause,
+    canGoPrevious,
+    canGoNext,
+    safeDuration,
+    safeCurrentTime,
+    progressPercent,
+    formatTime
+  } = usePlaybackHelpers({ currentSong, queue, currentTime, duration, volume, isTransitioning });
 
   const handleSeek = useCallback((event) => {
     seekTo(Number(event.target.value));
@@ -76,8 +65,6 @@ export const FullPlayerView = () => {
   }, [setIsPlayerExpanded]);
 
   if (!currentSong || !isPlayerExpanded) return null;
-
-  const progressPercent = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
 
   return (
     <motion.div

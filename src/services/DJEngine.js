@@ -176,7 +176,7 @@ class DJEngine {
     // Clamp a rangos prácticos (4-20 segundos)
     const safeDuration = Math.min(20, Math.max(4, duration));
 
-    console.log(`[DJEngine] Plan: ${type} | ${phrasesCount} frases | ${safeDuration}s | sync: ${canSync}`);
+    // console.log(`[DJEngine] Plan: ${type} | ${phrasesCount} frases | ${safeDuration}s | sync: ${canSync}`);
 
     return {
       duration: safeDuration,

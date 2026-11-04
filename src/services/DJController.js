@@ -63,13 +63,13 @@ class DJController {
             // Si estamos a menos de 2 segundos de la frase, ¡es el momento!
             if (timeToPhrase < 2.0) {
               this.currentTransition = true;
-              console.log(`[DJController] 🎯 Transición en límite de frase: ${nextPhraseTime.toFixed(2)}s`);
+              // console.log(`[DJController] 🎯 Transición en límite de frase: ${nextPhraseTime.toFixed(2)}s`);
               onTransitionReady(nextPhraseTime);
             }
             // Si la frase está lejos pero ya estamos en zona de peligro, ir ya
             else if (currentTime >= duration - transitionDuration - 1) {
               this.currentTransition = true;
-              console.log(`[DJController] ⚡ Transición de emergencia en ${currentTime.toFixed(2)}s`);
+              // console.log(`[DJController] ⚡ Transición de emergencia en ${currentTime.toFixed(2)}s`);
               onTransitionReady(currentTime + 0.5);
             }
           } else {
@@ -139,7 +139,7 @@ class DJController {
    * 4. Esperar al momento exacto y lanzar la mezcla
    */
   async performSyncTransition(songA, songB, targetTimeA) {
-    console.log(`[DJController] 🎛️ Transición sincronizada a los ${targetTimeA.toFixed(2)}s`);
+    // console.log(`[DJController] 🎛️ Transición sincronizada a los ${targetTimeA.toFixed(2)}s`);
 
     const plan = djEngine.getTransitionPlan(songA, songB);
 
@@ -160,7 +160,7 @@ class DJController {
       playbackRate = songA.bpm / songB.bpm;
       // Limitar a ±8% para no distorsionar la música
       playbackRate = Math.min(1.08, Math.max(0.92, playbackRate));
-      console.log(`[DJController] BeatSync: ${songA.bpm} → ${songB.bpm} BPM (rate: ${playbackRate.toFixed(4)})`);
+      // console.log(`[DJController] BeatSync: ${songA.bpm} → ${songB.bpm} BPM (rate: ${playbackRate.toFixed(4)})`);
     }
 
     // Esperar al momento exacto

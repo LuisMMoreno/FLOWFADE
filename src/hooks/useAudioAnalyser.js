@@ -41,7 +41,7 @@ export function useAudioAnalyser(isActive, isPlaying) {
       useRealAnalyserRef.current = connected;
       setIsAnalyserReady(true);
     } catch (error) {
-      console.warn('[useAudioAnalyser] Fallback a simulación:', error);
+      // console.warn('[useAudioAnalyser] Fallback a simulación:', error);
       analyserConnectedRef.current = true;
       useRealAnalyserRef.current = false;
       setIsAnalyserReady(true);

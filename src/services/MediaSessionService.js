@@ -59,7 +59,7 @@ export const MediaSessionService = {
           navigator.mediaSession.setActionHandler(action, null);
         }
       } catch (error) {
-        console.warn(`MediaSession action "${action}" no soportada.`, error);
+        // console.warn(`MediaSession action "${action}" no soportada.`, error);
       }
     }
   },
@@ -73,7 +73,7 @@ export const MediaSessionService = {
     try {
       navigator.mediaSession.playbackState = state;
     } catch (error) {
-      console.warn('No se pudo actualizar mediaSession.playbackState.', error);
+      // console.warn('No se pudo actualizar mediaSession.playbackState.', error);
     }
   },
 
@@ -89,7 +89,7 @@ export const MediaSessionService = {
         position: Math.min(currentTime, duration)
       });
     } catch (error) {
-      console.warn('No se pudo actualizar mediaSession.setPositionState.', error);
+      // console.warn('No se pudo actualizar mediaSession.setPositionState.', error);
     }
   }
 };

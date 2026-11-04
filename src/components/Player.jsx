@@ -1,5 +1,6 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { usePlayback } from '../hooks/usePlayback';
+import { usePlaybackHelpers } from '../hooks/usePlaybackHelpers';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Music, ChevronUp } from 'lucide-react';
 
 /**
@@ -25,26 +26,17 @@ export const Player = () => {
     setVolume
   } = usePlayback();
 
-  const currentIndex = useMemo(() => {
-    if (!currentSong || !Array.isArray(queue)) return -1;
-    return queue.findIndex((song) => song.id === currentSong.id);
-  }, [currentSong, queue]);
-
-  const hasSong = Boolean(currentSong);
-  const canPlayPause = hasSong && !isTransitioning;
-  const canGoPrevious = currentIndex > 0 && !isTransitioning;
-  const canGoNext = currentIndex !== -1 && currentIndex < queue.length - 1 && !isTransitioning;
-  const safeDuration = duration || 0;
-  const safeCurrentTime = Math.min(currentTime || 0, safeDuration || 0);
-  const safeVolume = Number.isFinite(volume) ? volume : 1;
-  const progressPercent = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
-
-  const formatTime = (timeInSeconds) => {
-    const totalSeconds = Math.max(0, Math.floor(timeInSeconds));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
+  const {
+    hasSong,
+    canPlayPause,
+    canGoPrevious,
+    canGoNext,
+    safeDuration,
+    safeCurrentTime,
+    safeVolume,
+    progressPercent,
+    formatTime
+  } = usePlaybackHelpers({ currentSong, queue, currentTime, duration, volume, isTransitioning });
 
   const handleSeek = (event) => {
     seekTo(Number(event.target.value));

@@ -20,12 +20,6 @@ const smootherstep = (edge0, edge1, x) => {
   return t * t * t * (t * (t * 6 - 15) + 10);
 };
 
-// Equal-power crossfade (ganancia constante percibida)
-const equalPowerGain = (t) => ({
-  gainA: Math.cos(t * Math.PI * 0.5),
-  gainB: Math.sin(t * Math.PI * 0.5)
-});
-
 const lerp = (a, b, t) => (1 - t) * a + t * b;
 
 // --- DJ Phase System (Asymmetric) ---
@@ -69,7 +63,6 @@ const computeDJMix = (rawT) => {
   } else if (t < 0.55) {
     // BLEND: las dos conviven — lows se intercambian
     const p = smoothstep(0, 1, (t - 0.20) / 0.35);
-    const ep = equalPowerGain(p);
     powerA = lerp(1.0, 0.55, p);
     powerB = lerp(0.08, 0.55, p);
     phase = DJ_PHASES.BLEND;
@@ -275,7 +268,7 @@ class AudioEngine {
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIOS) {
-      console.warn('[AudioEngine] Web Audio / Analyser deshabilitado en iOS para preservar background audio y rendimiento.');
+      // console.warn('[AudioEngine] Web Audio / Analyser deshabilitado en iOS para preservar background audio y rendimiento.');
       return false;
     }
 
@@ -320,7 +313,7 @@ class AudioEngine {
           // HTMLAudioElement debe ser 1 (el control va por GainNode)
           audio.volume = 1;
         } catch (e) {
-          console.warn(`[AudioEngine] Error conectando slot ${i} a Web Audio:`, e);
+          // console.warn(`[AudioEngine] Error conectando slot ${i} a Web Audio:`, e);
         }
       });
 
@@ -332,7 +325,7 @@ class AudioEngine {
       this.isAnalyserActive = true;
       return true;
     } catch (error) {
-      console.warn('[AudioEngine] Web Audio no disponible:', error);
+      // console.warn('[AudioEngine] Web Audio no disponible:', error);
       return false;
     }
   }
@@ -409,7 +402,7 @@ class AudioEngine {
     try {
       audio.pause();
     } catch (error) {
-      console.warn('[AudioEngine] No se pudo pausar el slot.', error);
+      // console.warn('[AudioEngine] No se pudo pausar el slot.', error);
     }
 
     // Resetear EQ a flat
@@ -496,7 +489,7 @@ class AudioEngine {
     if (playbackRate !== 1.0) {
       const safeRate = clamp(playbackRate, 0.92, 1.08);
       nextAudio.playbackRate = safeRate;
-      console.log(`[DJ BeatSync] playbackRate ajustado: ${safeRate.toFixed(4)}`);
+      // console.log(`[DJ BeatSync] playbackRate ajustado: ${safeRate.toFixed(4)}`);
     }
 
     const playbackId = ++this.activePlaybackId;
@@ -518,7 +511,7 @@ class AudioEngine {
       const startTime = Date.now();
       let lastPhase = "";
 
-      console.log(`[DJ Mix] 🎛️ Iniciando mezcla DJ de ${crossfade}s con EQ dinámico`);
+      // console.log(`[DJ Mix] 🎛️ Iniciando mezcla DJ de ${crossfade}s con EQ dinámico`);
 
       this.fadeInterval = setInterval(() => {
         if (playbackId !== this.activePlaybackId) {
@@ -531,10 +524,10 @@ class AudioEngine {
         const { gainA, gainB, phase, eqA, eqB } = computeDJMix(rawProgress);
 
         if (phase !== lastPhase) {
-          console.log(`[DJ Mix] Phase: ${phase.toUpperCase()} | ${(rawProgress * 100).toFixed(0)}%`);
-          console.log(`[DJ Mix] Gains → A: ${gainA.toFixed(3)} B: ${gainB.toFixed(3)}`);
-          console.log(`[DJ Mix] EQ-A → L:${eqA.low.toFixed(2)} M:${eqA.mid.toFixed(2)} H:${eqA.high.toFixed(2)}`);
-          console.log(`[DJ Mix] EQ-B → L:${eqB.low.toFixed(2)} M:${eqB.mid.toFixed(2)} H:${eqB.high.toFixed(2)}`);
+          // console.log(`[DJ Mix] Phase: ${phase.toUpperCase()} | ${(rawProgress * 100).toFixed(0)}%`);
+          // console.log(`[DJ Mix] Gains → A: ${gainA.toFixed(3)} B: ${gainB.toFixed(3)}`);
+          // console.log(`[DJ Mix] EQ-A → L:${eqA.low.toFixed(2)} M:${eqA.mid.toFixed(2)} H:${eqA.high.toFixed(2)}`);
+          // console.log(`[DJ Mix] EQ-B → L:${eqB.low.toFixed(2)} M:${eqB.mid.toFixed(2)} H:${eqB.high.toFixed(2)}`);
           lastPhase = phase;
         }
 
@@ -550,7 +543,7 @@ class AudioEngine {
           this.clearFadeInterval();
           this.resetSlot(previousIndex);
           this.resetSlotEQ(nextIndex); // B vuelve a flat
-          console.log(`[DJ Mix] ✅ Mezcla completada`);
+          // console.log(`[DJ Mix] ✅ Mezcla completada`);
         }
       }, FADE_TICK_MS);
     } else {
@@ -600,7 +593,7 @@ class AudioEngine {
       .filter((value) => value !== null);
 
     this.audioElements.forEach((audio) => {
-      try { audio.pause(); } catch (error) {}
+      try { audio.pause(); } catch { /* ignore */ }
     });
 
     this.isPlaying = false;

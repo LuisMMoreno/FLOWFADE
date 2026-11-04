@@ -1,14 +1,18 @@
-import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { PlaybackContext } from './PlaybackContextCore';
 import { audioEngine } from '../services/AudioEngine';
 import { MediaSessionService } from '../services/MediaSessionService';
 import { djController } from '../services/DJController';
 import { djEngine } from '../services/DJEngine';
 
-export const PlaybackContext = createContext();
+export { PlaybackContext };
 
 let globalQueue = [];
 let globalCurrentIndex = -1;
 
+/** @typedef {{ children: React.ReactNode }} PlaybackProviderProps */
+
+/** @param {PlaybackProviderProps} param0 */
 export const PlaybackProvider = ({ children }) => {
   const [currentSong, setCurrentSong] = useState(globalQueue[globalCurrentIndex] || null);
   const [isPlaying, setIsPlaying] = useState(audioEngine.isPlaying);
@@ -245,7 +249,7 @@ export const PlaybackProvider = ({ children }) => {
   useEffect(() => {
     if (isPlaying && currentSong) {
       const nextTrack = globalQueue[globalCurrentIndex + 1];
-      djController.startScheduler(currentSong, nextTrack, (targetTime) => {
+      djController.startScheduler(currentSong, nextTrack, () => {
         autoNext();
       });
     } else {

@@ -1,4 +1,3 @@
-import Meyda from 'meyda';
 import MusicTempo from 'music-tempo';
 import { AudioStorageService } from './AudioStorageService';
 import { SongService } from './db';
@@ -23,7 +22,7 @@ class AudioAnalysisService {
     if (song.analyzed) return song;
 
     try {
-      console.log(`[Analysis] Iniciando análisis de: ${song.title}`);
+      // console.log(`[Analysis] Iniciando análisis de: ${song.title}`);
       const blob = await AudioStorageService.getAudioBlob(song.url);
       const arrayBuffer = await blob.arrayBuffer();
 
@@ -38,11 +37,11 @@ class AudioAnalysisService {
       };
 
       await SongService.updateSong(song.id, updates);
-      console.log(`[Analysis] ✅ Análisis completado para: ${song.title}`, updates);
+      // console.log(`[Analysis] ✅ Análisis completado para: ${song.title}`, updates);
 
       return { ...song, ...updates };
     } catch (error) {
-      console.error(`[Analysis] Error analizando pista ${song.id}:`, error);
+      // console.error(`[Analysis] Error analizando pista ${song.id}:`, error);
       return song;
     }
   }
@@ -94,7 +93,7 @@ class AudioAnalysisService {
         beats: mt.beats
       };
     } catch (e) {
-      console.warn('[Analysis] Error detectando BPM/Beats:', e);
+      // console.warn('[Analysis] Error detectando BPM/Beats:', e);
       return { tempo: 0, beats: [] };
     }
   }

@@ -25,7 +25,7 @@ export function useLibrary() {
       });
       
       if (audioFiles.length === 0) {
-        console.warn('No se detectaron archivos de audio válidos.');
+        // console.warn('No se detectaron archivos de audio válidos.');
         return;
       }
 
@@ -33,7 +33,7 @@ export function useLibrary() {
         await AudioStorageService.importFile(file);
       }
     } catch (error) {
-      console.error('Error en la importación masiva:', error);
+      // console.error('Error en la importación masiva:', error);
     } finally {
       setIsImporting(false);
     }

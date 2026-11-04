@@ -1,10 +1,19 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 
 /**
+ * @typedef {Object} WaveBackgroundProps
+ * @property {number} [bassLevel=0] - Nivel de graves (0-1)
+ * @property {number} [midLevel=0] - Nivel de medios (0-1)
+ * @property {number[]} [primaryRgb=[29, 185, 84]] - Color primario RGB
+ * @property {number[]} [secondaryRgb=[25, 20, 20]] - Color secundario RGB
+ * @property {boolean} [isPlaying=false] - Estado de reproducción
+ */
+
+/**
  * Fondo de ondas orgánicas reactivas al ritmo.
  * Renderiza en Canvas 2D con optimización GPU.
  *
- * @param {{ bassLevel: number, midLevel: number, primaryColor: string, secondaryColor: string, primaryRgb: number[], secondaryRgb: number[], isPlaying: boolean }} props
+ * @param {WaveBackgroundProps} param0
  */
 export const WaveBackground = ({
   bassLevel = 0,

@@ -149,7 +149,7 @@ export const ColorExtractionService = {
             gradient: `linear-gradient(135deg, rgb(${primary[0]}, ${primary[1]}, ${primary[2]}) 0%, rgb(${secondary[0]}, ${secondary[1]}, ${secondary[2]}) 100%)`
           });
         } catch (error) {
-          console.warn('[ColorExtraction] Error extrayendo colores:', error);
+          // console.warn('[ColorExtraction] Error extrayendo colores:', error);
           resolve(this.getDefaultColors());
         }
       };

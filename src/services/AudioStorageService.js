@@ -20,45 +20,38 @@ export const AudioStorageService = {
    * @param {File} file - El archivo seleccionado por el usuario.
    */
   async importFile(file) {
-    console.log(`[AudioStorage] Iniciando importación: ${file.name} (${file.type || 'tipo desconocido'})`);
-    
-    return new Promise(async (resolve, reject) => {
-      try {
-        // 1. Extraer Metadatos
-        const metadata = await this.extractMetadata(file);
-        console.log(`[AudioStorage] Metadatos extraídos para: ${file.name}`);
-        
-        // 2. Guardar archivo binario en Cache API
-        const cache = await caches.open(AUDIO_CACHE_NAME);
-        const songUrl = `/local-song/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-        
-        // Usamos Response con cabeceras explícitas para evitar problemas en iOS PWA
-        const response = new Response(file, {
-          headers: {
-            'Content-Type': file.type || 'audio/mpeg',
-            'Content-Length': file.size.toString()
-          }
-        });
-        
-        await cache.put(songUrl, response);
-        console.log(`[AudioStorage] Archivo guardado en Cache API: ${songUrl}`);
+    // console.log(`[AudioStorage] Iniciando importación: ${file.name} (${file.type || 'tipo desconocido'})`);
 
-        // 3. Guardar metadatos en IndexedDB
-        const songId = await SongService.addSong({
-          ...metadata,
-          url: songUrl,
-          format: file.type || 'audio/mpeg',
-          size: file.size,
-          fileName: file.name
-        });
-        console.log(`[AudioStorage] Registro completado en DB con ID: ${songId}`);
+    // 1. Extraer Metadatos
+    const metadata = await this.extractMetadata(file);
+    // console.log(`[AudioStorage] Metadatos extraídos para: ${file.name}`);
 
-        resolve({ id: songId, ...metadata });
-      } catch (error) {
-        console.error('[AudioStorage] Error crítico en importación:', error);
-        reject(error);
+    // 2. Guardar archivo binario en Cache API
+    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const songUrl = `/local-song/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+
+    // Usamos Response con cabeceras explícitas para evitar problemas en iOS PWA
+    const response = new Response(file, {
+      headers: {
+        'Content-Type': file.type || 'audio/mpeg',
+        'Content-Length': file.size.toString()
       }
     });
+
+    await cache.put(songUrl, response);
+    // console.log(`[AudioStorage] Archivo guardado en Cache API: ${songUrl}`);
+
+    // 3. Guardar metadatos en IndexedDB
+    const songId = await SongService.addSong({
+      ...metadata,
+      url: songUrl,
+      format: file.type || 'audio/mpeg',
+      size: file.size,
+      fileName: file.name
+    });
+    // console.log(`[AudioStorage] Registro completado en DB con ID: ${songId}`);
+
+    return { id: songId, ...metadata };
   },
 
   /**
@@ -74,16 +67,16 @@ export const AudioStorageService = {
 
     return new Promise((resolve) => {
       const tags = getJsMediaTags();
-      
+
       // Seguridad: Si la librería no cargó, usamos fallback inmediato
       if (!tags || typeof tags.read !== 'function') {
-        console.warn("[AudioStorage] jsmediatags no disponible, usando fallback.");
+        // console.warn("[AudioStorage] jsmediatags no disponible, usando fallback.");
         return resolve(fallback);
       }
 
       // Timeout de 3 segundos para evitar bloqueos en iOS
       const timeout = setTimeout(() => {
-        console.warn("[AudioStorage] Timeout extrayendo metadatos, usando fallback.");
+        // console.warn("[AudioStorage] Timeout extrayendo metadatos, usando fallback.");
         resolve(fallback);
       }, 3000);
 
@@ -102,8 +95,8 @@ export const AudioStorageService = {
                   base64String += String.fromCharCode(data[i]);
                 }
                 cover = `data:${format};base64,${window.btoa(base64String)}`;
-              } catch (e) {
-                console.warn("[AudioStorage] Error procesando portada:", e);
+              } catch {
+                // console.warn("[AudioStorage] Error procesando portada:", e);
               }
             }
 
@@ -114,15 +107,15 @@ export const AudioStorageService = {
               cover: cover
             });
           },
-          onError: (error) => {
+          onError: (_error) => {
             clearTimeout(timeout);
-            console.warn("[AudioStorage] Error ID3:", error.type, error.info);
+            // console.warn("[AudioStorage] Error ID3:", _error.type, _error.info);
             resolve(fallback);
           }
         });
       } catch (err) {
         clearTimeout(timeout);
-        console.error("[AudioStorage] Error fatal en tags.read:", err);
+        // console.error("[AudioStorage] Error fatal en tags.read:", err);
         resolve(fallback);
       }
     });

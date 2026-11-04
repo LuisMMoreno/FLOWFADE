@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useLibrary } from '../hooks/useLibrary';
 import { usePlayback } from '../hooks/usePlayback';
-import { Plus, Music, Play, Trash2, Clock, Pause } from 'lucide-react';
+import { Plus, Music, Play, Trash2, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const LibraryView = () => {
